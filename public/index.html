@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -8,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="overlay">
+    <div id="overlay" style="display:none;">
         <h1 id="winner-msg">WINNER!</h1>
         <button onclick="location.reload()">もう一度遊ぶ</button>
     </div>
@@ -19,10 +18,10 @@
                 <div class="player-header">
                     <span class="player-name">PLAYER A</span>
                     <div class="stats-container">
-                        <div class="gauge-label">HP <span id="p1-hp">100</span>/200</div>
-                        <div class="gauge-bar"><div id="p1-hp-bar" class="gauge-fill hp"></div></div>
-                        <div class="gauge-label">MP <span id="p1-mp">100</span>/200</div>
-                        <div class="gauge-bar"><div id="p1-mp-bar" class="gauge-fill mp"></div></div>
+                        <div class="gauge-label">HP <span id="p1-hp">200</span>/200</div>
+                        <div class="gauge-bar"><div id="p1-hp-bar" class="gauge-fill hp" style="width: 100%;"></div></div>
+                        <div class="gauge-label">MP <span id="p1-mp">150</span>/250</div>
+                        <div class="gauge-bar"><div id="p1-mp-bar" class="gauge-fill mp" style="width: 60%;"></div></div>
                     </div>
                 </div>
                 <div id="p1-hand" class="hand-container"></div>
@@ -36,10 +35,10 @@
                 <div class="player-header">
                     <span class="player-name">PLAYER B</span>
                     <div class="stats-container">
-                        <div class="gauge-label">HP <span id="p2-hp">100</span>/200</div>
-                        <div class="gauge-bar"><div id="p2-hp-bar" class="gauge-fill hp"></div></div>
-                        <div class="gauge-label">MP <span id="p2-mp">100</span>/200</div>
-                        <div class="gauge-bar"><div id="p2-mp-bar" class="gauge-fill mp"></div></div>
+                        <div class="gauge-label">HP <span id="p2-hp">200</span>/200</div>
+                        <div class="gauge-bar"><div id="p2-hp-bar" class="gauge-fill hp" style="width: 100%;"></div></div>
+                        <div class="gauge-label">MP <span id="p2-mp">150</span>/250</div>
+                        <div class="gauge-bar"><div id="p2-mp-bar" class="gauge-fill mp" style="width: 60%;"></div></div>
                     </div>
                 </div>
                 <div id="p2-hand" class="hand-container"></div>
@@ -49,14 +48,19 @@
         <aside id="info-panel">
             <div class="panel-section">
                 <h2>CARD INFO</h2>
-                <div id="card-detail"><p class="placeholder">カードにホバーして詳細を表示</p></div>
+                <div id="card-detail">
+                    <p class="placeholder">カードにホバーして詳細を表示</p>
+                </div>
             </div>
             <div class="panel-section log-section">
                 <h2>BATTLE LOG</h2>
-                <div id="log-container"><div id="log"></div></div>
+                <div id="log-container">
+                    <div id="log"></div>
+                </div>
             </div>
         </aside>
     </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>
