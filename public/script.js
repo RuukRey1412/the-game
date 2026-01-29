@@ -35,7 +35,7 @@ const CARDS = {
         { name: "せいじの大学院進学", mp: 15, weight: 9.9, desc: "相手手札をランダムで2枚破壊", effect: async (u, t) => await destroyHand(t, 2) },
         { name: "みっちーの簿記", mp: 10, weight: 9.9, desc: "手札2枚得る", effect: async (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); } return "手札+2"; } },
         { name: "かいせの発音", mp: 20, weight: 9.9, desc: "手札3枚得る", effect: async (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); drawCard(u); } return "手札+3"; } },
-        { name: "盛川美優の妄想", mp: 40, weight: 1.0, desc: "無", effect: async () => { return "無"; } }
+        { name: "盛川美優の妄想", mp: 40, weight: 1.0, desc: "※利用可能な場合、必ず利用しなければならない。使用時、敗北する。", effect: async (u) => { u.hp = 0; return "強制敗北！"; } }
     ]
 };
 
@@ -44,11 +44,7 @@ let myRole = null, turn = p1, phase = "DRAW", currentAttack = null, isProcessing
 
 function joinRoom() {
     const roomID = document.getElementById('room-input').value;
-    if (roomID) {
-        currentRoom = roomID;
-        socket.emit('join-room', roomID);
-        document.getElementById('wait-msg').style.display = "block";
-    }
+    if (roomID) { currentRoom = roomID; socket.emit('join-room', roomID); document.getElementById('wait-msg').style.display = "block"; }
 }
 
 socket.on('assign-role', (role) => { 
@@ -84,8 +80,7 @@ socket.on('sync-draw', (data) => {
         let rw = data.card.seed * total;
         for (const c of pool) { if (rw < c.weight) { card = {...c, type:data.card.type}; break; } rw -= c.weight; }
     }
-    p.hand.push(card);
-    updateUI();
+    p.hand.push(card); updateUI();
 });
 
 async function destroyHand(targetPlayer, count) {
@@ -95,13 +90,9 @@ async function destroyHand(targetPlayer, count) {
             const idx = Math.floor(Math.random() * targetPlayer.hand.length);
             const handId = `${targetPlayer.id}-hand`;
             const cardElement = document.getElementById(handId)?.children[idx];
-            if(cardElement) {
-                cardElement.classList.add('tearing');
-                await new Promise(r => setTimeout(r, 700));
-            }
+            if(cardElement) { cardElement.classList.add('tearing'); await new Promise(r => setTimeout(r, 700)); }
             targetPlayer.hand.splice(idx, 1);
-            destroyedCount++;
-            updateUI();
+            destroyedCount++; updateUI();
         }
     }
     return destroyedCount > 0 ? `相手手札${destroyedCount}枚破壊` : "破壊失敗";
@@ -118,6 +109,11 @@ function manualDraw() {
 }
 
 function updateUI() {
+    const myPlayer = (myRole === 'p1' ? p1 : p2);
+    // 強制カードチェック：手札にあり、かつMP40以上
+    const hasMorikawa = myPlayer.hand.some(c => c.name === "盛川美優の妄想");
+    const canUseMorikawa = hasMorikawa && myPlayer.mp >= 40;
+
     [p1, p2].forEach(p => {
         document.getElementById(`${p.id}-hp`).innerText = Math.max(0, p.hp);
         document.getElementById(`${p.id}-mp`).innerText = p.mp;
@@ -127,22 +123,20 @@ function updateUI() {
     document.getElementById('p1-area').classList.toggle("active", turn === p1);
     document.getElementById('p2-area').classList.toggle("active", turn === p2);
     
-    const dZone1 = document.getElementById('p1-draw-zone');
-    const dZone2 = document.getElementById('p2-draw-zone');
-    if(dZone1) dZone1.classList.toggle('highlight', turn === p1 && phase === "DRAW" && myRole === 'p1');
-    if(dZone2) dZone2.classList.toggle('highlight', turn === p2 && phase === "DRAW" && myRole === 'p2');
-
-    renderHand('p1-hand', p1); renderHand('p2-hand', p2);
+    // 自プレイヤーがMP40以上の「盛川」を持っている場合、renderHandにフラグを渡す
+    renderHand('p1-hand', p1, canUseMorikawa && turn.id === myRole && phase === "MAIN"); 
+    renderHand('p2-hand', p2, canUseMorikawa && turn.id === myRole && phase === "MAIN");
     
     const sBtn = document.getElementById('skip-btn');
     if (turn.id === myRole && phase !== "DRAW") { 
         sBtn.style.display = "block"; 
         sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了"; 
-        sBtn.disabled = isProcessing; 
+        // メインフェーズかつ盛川使用可能時はスキップ不可
+        sBtn.disabled = isProcessing || (canUseMorikawa && phase === "MAIN");
     } else { sBtn.style.display = "none"; }
 }
 
-function renderHand(id, p) {
+function renderHand(id, p, forceMorikawa) {
     const el = document.getElementById(id); if(!el) return;
     el.innerHTML = "";
     p.hand.forEach((c, i) => {
@@ -153,10 +147,23 @@ function renderHand(id, p) {
             d.className = `card ${c.type}`;
             let spec = c.type === 'atk' ? `攻:${c.atk}` : c.type === 'def' ? `防:${c.def}` : `援`;
             d.innerHTML = `<b>${c.name}</b><br><small>${spec} MP:${c.mp}</small>`;
-            const canUse = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def");
-            if (turn.id === myRole && canUse && p.mp >= c.mp && !isProcessing) {
+            
+            const isMyTurn = (turn.id === myRole);
+            const canUseType = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def");
+            
+            // 使用可能判定
+            let isSelectable = isMyTurn && canUseType && p.mp >= c.mp && !isProcessing;
+            
+            // 【重要】MP40以上かつメインフェーズなら「盛川」以外を選択不可にする
+            if (forceMorikawa && c.name !== "盛川美優の妄想") {
+                isSelectable = false;
+            }
+
+            if (isSelectable) {
                 d.onclick = () => { isProcessing = true; socket.emit('player-action', {type:'use', playerId:myRole, idx:i, roomID: currentRoom}); };
-            } else { d.style.opacity = "0.3"; }
+            } else { 
+                d.style.opacity = "0.3"; // MP不足または強制行動による封鎖時は半透明
+            }
             d.onmouseover = () => { document.getElementById('card-detail').innerText = `${c.name}: ${c.desc}`; };
         }
         el.appendChild(d);
@@ -171,58 +178,39 @@ function getDamage(atkC, defC) {
 
 async function executeCard(p, i) {
     const c = p.hand[i], target = (p === p1) ? p2 : p1;
-    if(!c) return; 
-    p.mp -= c.mp;
-
+    if(!c) return; p.mp -= c.mp;
     if (phase === "MAIN") {
         if (c.type === "atk") { 
-            currentAttack = c; 
-            p.hand.splice(i, 1); 
-            phase = "DEFENSE"; 
-            turn = target; 
+            currentAttack = c; p.hand.splice(i, 1); phase = "DEFENSE"; turn = target;
             log(`${p.id.toUpperCase()}の攻撃: ${c.name}`);
             if (c.effect) await c.effect(p, target);
         } else if (c.type === "sup") { 
             const r = c.effect ? await c.effect(p, target) : ""; 
             log(`${p.id.toUpperCase()}の支援: ${c.name}${r?' ('+r+')':''}`);
-            p.hand.splice(i, 1); 
-            startNextPlayerTurn(target);
+            p.hand.splice(i, 1); startNextPlayerTurn(target);
         }
     } else if (phase === "DEFENSE") {
-        let dmg = getDamage(currentAttack, c); 
-        p.hp -= dmg;
+        let dmg = getDamage(currentAttack, c); p.hp -= dmg;
         log(`${p.id.toUpperCase()}の防御: ${c.name} (${dmg}ダメージ)`);
         if (c.effect) await c.effect(p);
-        p.hand.splice(i, 1); 
-        startNextPlayerTurn(p);
+        p.hand.splice(i, 1); startNextPlayerTurn(p);
     }
     updateUI();
 }
 
-function takeAction() { 
-    if (turn.id === myRole && !isProcessing) { 
-        isProcessing = true; 
-        socket.emit('player-action', {type:'skip', playerId:myRole, roomID: currentRoom}); 
-    } 
-}
+function takeAction() { if (turn.id === myRole && !isProcessing) { isProcessing = true; socket.emit('player-action', {type:'skip', playerId:myRole, roomID: currentRoom}); } }
 
 async function executeSkip(p) {
     if (phase === "DEFENSE") {
-        let dmg = getDamage(currentAttack, null); 
-        p.hp -= dmg;
+        let dmg = getDamage(currentAttack, null); p.hp -= dmg;
         log(`${p.id.toUpperCase()}は攻撃を受けた (${dmg}ダメージ)`);
         startNextPlayerTurn(p);
-    } else {
-        const target = (p === p1) ? p2 : p1;
-        startNextPlayerTurn(target);
-    }
+    } else { startNextPlayerTurn((p === p1) ? p2 : p1); }
 }
 
 function startNextPlayerTurn(nextPlayer) {
     if (checkWin()) return;
-    currentAttack = null;
-    phase = "DRAW";
-    turn = nextPlayer;
+    currentAttack = null; phase = "DRAW"; turn = nextPlayer;
     log(`--- ${turn.id.toUpperCase()}のターン (ドロー待ち) ---`);
     updateUI();
 }
@@ -234,8 +222,7 @@ function log(msg) {
 }
 
 function checkWin() {
-    const p1Lost = p1.hp <= 0;
-    const p2Lost = p2.hp <= 0;
+    const p1Lost = p1.hp <= 0; const p2Lost = p2.hp <= 0;
     if (p1Lost || p2Lost) {
         isProcessing = true;
         document.getElementById('overlay').style.display = "flex";
