@@ -49,13 +49,8 @@ socket.on('sync-action', async (data) => {
     const actor = data.playerId === 'p1' ? p1 : p2;
     if (data.type === 'use') await executeCard(actor, data.idx);
     else if (data.type === 'skip') await executeSkip(actor);
-    else if (data.type === 'phase-draw') { 
-        if(phase === "DRAW") {
-            phase = "MAIN"; 
-        }
-    }
-    isProcessing = false; 
-    updateUI();
+    else if (data.type === 'phase-draw') { if(phase === "DRAW") phase = "MAIN"; }
+    isProcessing = false; updateUI();
 });
 
 socket.on('sync-draw', (data) => {
@@ -94,11 +89,9 @@ async function destroyHand(targetPlayer, count) {
 function drawCard(p) { socket.emit('request-draw', { playerId: p.id }); }
 
 function manualDraw() {
-    // 自分のターンかつドローフェーズのみ
     if (turn.id === myRole && phase === "DRAW" && !isProcessing) {
         isProcessing = true;
         drawCard(turn);
-        // 通信でフェーズ移行を通知
         socket.emit('player-action', {type:'phase-draw', playerId:myRole});
     }
 }
@@ -139,11 +132,8 @@ function renderHand(id, p) {
             d.className = `card ${c.type}`;
             let spec = c.type === 'atk' ? `攻:${c.atk}` : c.type === 'def' ? `防:${c.def}` : `援`;
             d.innerHTML = `<b>${c.name}</b><br><small>${spec} MP:${c.mp}</small>`;
-            
-            const isMyTurn = (turn.id === myRole);
             const canUse = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def");
-            
-            if (isMyTurn && canUse && p.mp >= c.mp && !isProcessing) {
+            if (turn.id === myRole && canUse && p.mp >= c.mp && !isProcessing) {
                 d.onclick = () => { isProcessing = true; socket.emit('player-action', {type:'use', playerId:myRole, idx:i}); };
             } else { d.style.opacity = "0.3"; }
             d.onmouseover = () => { document.getElementById('card-detail').innerText = `${c.name}: ${c.desc}`; };
@@ -168,16 +158,15 @@ async function executeCard(p, i) {
             currentAttack = c; 
             p.hand.splice(i, 1); 
             phase = "DEFENSE"; 
-            turn = target; // 防御側にターンを渡す
-            
+            turn = target; // 攻撃中、操作権を防御側に移す
             log(`${p.id.toUpperCase()}の攻撃: ${c.name}`);
             if (c.effect) await c.effect(p, target);
-            // 防御アクション待ち
         } else if (c.type === "sup") { 
             const r = c.effect ? await c.effect(p, target) : ""; 
             log(`${p.id.toUpperCase()}の支援: ${c.name}${r?' ('+r+')':''}`);
             p.hand.splice(i, 1); 
-            changeTurn(); 
+            // 支援カード使用後は、相手のターン(ドロー)にする
+            startNextPlayerTurn(target);
         }
     } else if (phase === "DEFENSE") {
         let dmg = getDamage(currentAttack, c); 
@@ -185,7 +174,8 @@ async function executeCard(p, i) {
         log(`${p.id.toUpperCase()}の防御: ${c.name} (${dmg}ダメージ)`);
         if (c.effect) await c.effect(p);
         p.hand.splice(i, 1); 
-        finishAttackCycle();
+        // 防御完了。防御したプレイヤー（自分）のターン(ドロー)を開始する
+        startNextPlayerTurn(p);
     }
     updateUI();
 }
@@ -202,23 +192,24 @@ async function executeSkip(p) {
         let dmg = getDamage(currentAttack, null); 
         p.hp -= dmg;
         log(`${p.id.toUpperCase()}は攻撃を受けた (${dmg}ダメージ)`);
-        finishAttackCycle();
+        // ダメージを受けたプレイヤー（自分）のターン(ドロー)を開始する
+        startNextPlayerTurn(p);
     } else {
-        changeTurn();
+        // メインフェーズでの「終了」：相手のターン(ドロー)にする
+        const target = (p === p1) ? p2 : p1;
+        startNextPlayerTurn(target);
     }
 }
 
-function finishAttackCycle() {
-    phase = "MAIN"; 
-    currentAttack = null; 
-    changeTurn();
-}
-
-function changeTurn() {
+// ターン管理の核心部分：指定されたプレイヤーを「ドロー待ち」状態にする
+function startNextPlayerTurn(nextPlayer) {
     if (checkWin()) return;
-    turn = (turn === p1) ? p2 : p1;
-    phase = "DRAW"; // ターン交代時は必ずドロー待ちにする
-    log(`--- ${turn.id.toUpperCase()}のターン (ドロー) ---`);
+    
+    currentAttack = null;
+    phase = "DRAW";
+    turn = nextPlayer; // 次にドローアクションを行うべきプレイヤーを確実にセット
+    
+    log(`--- ${turn.id.toUpperCase()}のターン (ドロー待ち) ---`);
     updateUI();
 }
 
