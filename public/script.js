@@ -4,13 +4,12 @@ const MAX_HP = 200;
 const MAX_MP = 250;
 const MAX_HAND = 10;
 
-// カードデータ
 const CARDS = {
     atk: [
         { name: "あずなさん", atk: 10, mp: 5, sex: "女", desc: "成功時、MPを15回復", effect: (u) => { u.mp = Math.min(MAX_MP, u.mp + 15); return "MP15回復"; } },
         { name: "上田さん", atk: 5, mp: 5, sex: "女", desc: "成功時、HPを10回復", effect: (u) => { u.hp = Math.min(MAX_HP, u.hp + 10); return "HP10回復"; } },
         { name: "まゆさん", atk: 5, mp: 5, sex: "女", desc: "標準攻撃" },
-        { name: "てぃあな", atk: 15, mp: 5, sex: "女", desc: "成功時、相手手札1枚破棄", effect: (u, t) => { return destroyHand(t, 1); } },
+        { name: "てぃあな", atk: 15, mp: 5, sex: "女", desc: "ヒット時、相手手札1枚破棄", effect: (u, t) => { return destroyHand(t, 1); } },
         { name: "岡村桜介", atk: 20, mp: 8, sex: "男", desc: "物理一撃" },
         { name: "太田", atk: 1, mp: 10, sex: "男", desc: "相手防御が「女」なら攻撃力25", calcAtk: (target) => (target && target.sex === "女") ? 25 : 1 },
         { name: "かなた", atk: 10, mp: 8, sex: "男", desc: "防御が「女」なら攻撃力0", calcAtk: (target) => (target && target.sex === "女") ? 0 : 10 },
@@ -62,9 +61,8 @@ socket.on('sync-action', (data) => {
     else if (data.type === 'skip') executeSkip(actor);
     else if (data.type === 'phase-draw') {
         if(phase === "DRAW") {
-            const p = data.playerId === 'p1' ? p1 : p2;
             phase = "MAIN";
-            log(`${p.id.toUpperCase()}がカードを引いた`);
+            log(`${data.playerId.toUpperCase()}のドロー完了`);
         }
     }
     isProcessing = false; updateUI();
@@ -80,29 +78,25 @@ socket.on('sync-draw', (data) => {
         let rw = data.card.seed * total;
         for (const c of pool) { if (rw < c.weight) { card = {...c, type:data.card.type}; break; } rw -= c.weight; }
     }
-    p.hand.push(card);
-    updateUI();
+    p.hand.push(card); updateUI();
 });
 
-// 手札破壊アニメーション用関数
+// 手札破壊演出（非同期処理の管理を厳密化）
 async function destroyHand(targetPlayer, count) {
     let destroyedCount = 0;
     for (let i = 0; i < count; i++) {
         if (targetPlayer.hand.length > 0) {
-            isProcessing = true; // 演出中ロック
             const idx = Math.floor(Math.random() * targetPlayer.hand.length);
             const handId = `${targetPlayer.id}-hand`;
             const cardElement = document.getElementById(handId).children[idx];
             
             if(cardElement) {
-                cardElement.classList.add('tearing'); // CSSアニメーション付与
-                await new Promise(r => setTimeout(r, 700)); // 演出待ち
+                cardElement.classList.add('tearing');
+                await new Promise(r => setTimeout(r, 700));
             }
-            
             targetPlayer.hand.splice(idx, 1);
             destroyedCount++;
             updateUI();
-            isProcessing = false;
         }
     }
     checkWin();
@@ -111,7 +105,6 @@ async function destroyHand(targetPlayer, count) {
 
 function drawCard(p) { socket.emit('request-draw', { playerId: p.id }); }
 
-// ドローフェーズ用の手動ドロー
 function manualDraw() {
     if (turn.id === myRole && phase === "DRAW" && !isProcessing) {
         isProcessing = true;
@@ -131,7 +124,6 @@ function updateUI() {
     document.getElementById('p1-area').classList.toggle("active", turn === p1);
     document.getElementById('p2-area').classList.toggle("active", turn === p2);
     
-    // ドローフェーズの視覚効果
     const dZone1 = document.getElementById('p1-draw-zone');
     const dZone2 = document.getElementById('p2-draw-zone');
     if(dZone1) dZone1.classList.toggle('highlight', turn === p1 && phase === "DRAW" && myRole === 'p1');
@@ -165,44 +157,69 @@ function renderHand(id, p) {
     });
 }
 
-function executeCard(p, i) {
+async function executeCard(p, i) {
     const c = p.hand[i], target = (p === p1) ? p2 : p1;
     if(!c) return; 
     p.mp -= c.mp;
+
     if (phase === "MAIN") {
-        if (c.type === "atk") { currentAttack = c; p.hand.splice(i, 1); phase = "DEFENSE"; turn = target; log(`${p.id.toUpperCase()}の攻撃: ${c.name}`); }
-        else { 
-            const r = c.effect ? c.effect(p, target) : ""; 
-            if(r && typeof r === 'string') log(`${p.id.toUpperCase()}の支援: ${c.name} (${r})`);
-            else log(`${p.id.toUpperCase()}の支援: ${c.name}`);
-            p.hand.splice(i, 1); checkWin(); changeTurn(); 
+        if (c.type === "atk") {
+            currentAttack = c;
+            p.hand.splice(i, 1);
+            phase = "DEFENSE";
+            turn = target;
+            log(`${p.id.toUpperCase()}の攻撃: ${c.name}`);
+        } else {
+            const r = c.effect ? await c.effect(p, target) : ""; 
+            log(`${p.id.toUpperCase()}の支援: ${c.name} (${r || ""})`);
+            p.hand.splice(i, 1);
+            checkWin(); changeTurn();
         }
     } else if (phase === "DEFENSE") {
         let a = currentAttack ? (currentAttack.calcAtk ? currentAttack.calcAtk(c) : currentAttack.atk) : 0;
         let d = c.calcDef ? c.calcDef(currentAttack) : (c.def || 0);
-        let dmg = Math.max(0, a - d); p.hp -= dmg;
+        let dmg = Math.max(0, a - d);
+        p.hp -= dmg;
         log(`${p.id.toUpperCase()}の防御: ${c.name} (${dmg}ダメージ)`);
-        if (c.effect) c.effect(p);
-        p.hand.splice(i, 1); phase = "MAIN"; currentAttack = null; checkWin(); changeTurn();
+        
+        // ヒット時効果（てぃあな等）を解決
+        if (currentAttack && currentAttack.effect) {
+            const r = await currentAttack.effect(target, p);
+            if(r) log(` └ 追撃効果: ${r}`);
+        }
+        if (c.effect) await c.effect(p);
+
+        p.hand.splice(i, 1);
+        phase = "MAIN";
+        currentAttack = null;
+        checkWin(); changeTurn(); // 防御側のアクション完了後にターン交代
     }
 }
 
 function takeAction() { if (turn.id === myRole && !isProcessing) { isProcessing = true; socket.emit('player-action', {type:'skip', playerId:myRole}); } }
 
-function executeSkip(p) {
+async function executeSkip(p) {
+    const attacker = (p === p1) ? p2 : p1;
     if (phase === "DEFENSE") {
         let dmg = currentAttack ? currentAttack.atk : 0;
         p.hp -= dmg;
         log(`${p.id.toUpperCase()}は防御せず ${dmg} ダメージ受けた`);
-        phase = "MAIN"; currentAttack = null; checkWin(); changeTurn();
+        
+        if (currentAttack && currentAttack.effect) {
+            const r = await currentAttack.effect(attacker, p);
+            if(r) log(` └ 追撃効果: ${r}`);
+        }
+        
+        phase = "MAIN"; currentAttack = null;
+        checkWin(); changeTurn();
     } else changeTurn();
 }
 
 function changeTurn() {
-    checkWin(); // ターン交代前にも敗北チェック
+    checkWin();
     turn = (turn === p1) ? p2 : p1;
-    phase = "DRAW"; // 次のターンは必ずドローフェーズから開始
-    log(`--- ${turn.id.toUpperCase()}のターン (ドロー待ち) ---`);
+    phase = "DRAW"; // 確実にDRAWフェーズへ戻す
+    log(`--- ${turn.id.toUpperCase()}の番 (ドローして下さい) ---`);
     updateUI();
 }
 
@@ -213,10 +230,8 @@ function log(msg) {
 }
 
 function checkWin() {
-    // 手札全損またはHP0以下で敗北
-    const p1Lost = p1.hp <= 0 || (p1.hand.length === 0 && turn === p1 && phase !== "DRAW");
-    const p2Lost = p2.hp <= 0 || (p2.hand.length === 0 && turn === p2 && phase !== "DRAW");
-    
+    const p1Lost = p1.hp <= 0 || (p1.hand.length === 0 && turn === p1 && phase === "MAIN");
+    const p2Lost = p2.hp <= 0 || (p2.hand.length === 0 && turn === p2 && phase === "MAIN");
     if (p1Lost || p2Lost) {
         document.getElementById('overlay').style.display = "flex";
         document.getElementById('winner-msg').innerText = (p1Lost ? "PLAYER B" : "PLAYER A") + " WIN!";
