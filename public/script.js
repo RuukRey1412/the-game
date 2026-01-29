@@ -1,6 +1,5 @@
 const socket = io();
 
-// カードデータ
 const CARDS = {
     atk: [
         { name: "あずなさん", atk: 10, mp: 5, sex: "女", desc: "成功時、MPを15回復", effect: (u) => { u.mp = Math.min(200, u.mp + 15); return "MP15回復"; } },
@@ -40,7 +39,6 @@ const CARDS = {
     ]
 };
 
-// ステータス初期値の変更 (HP: 200, MP: 150)
 let p1 = { id: 'p1', hp: 200, mp: 150, hand: [] }, p2 = { id: 'p2', hp: 200, mp: 150, hand: [] };
 let myRole = null, turn = p1, phase = "MAIN", currentAttack = null;
 let isProcessing = false;
@@ -48,7 +46,6 @@ let isProcessing = false;
 socket.on('assign-role', (role) => { myRole = role; updateUI(); });
 
 socket.on('start-game', () => {
-    // ゲーム開始時のリセット設定
     p1.hand = []; p2.hand = []; p1.hp = 200; p2.hp = 200; p1.mp = 150; p2.mp = 150;
     phase = "MAIN"; turn = p1; isProcessing = false;
     if(myRole === 'p1') {
@@ -94,13 +91,10 @@ function updateUI() {
         const mpEl = document.getElementById(`${p.id}-mp`);
         if(hpEl) hpEl.innerText = Math.max(0, p.hp);
         if(mpEl) mpEl.innerText = p.mp;
-        
-        // 最大値 200 に基づくデザイン最適化（プログレスバー計算）
         const hpBar = document.getElementById(`${p.id}-hp-bar`);
-        if(hpBar) hpBar.style.width = `${Math.max(0, Math.min(100, (p.hp / 200) * 100))}%`;
-        
+        if(hpBar) hpBar.style.width = `${Math.min(100, (p.hp / 200) * 100)}%`;
         const mpBar = document.getElementById(`${p.id}-mp-bar`);
-        if(mpBar) mpBar.style.width = `${Math.max(0, Math.min(100, (p.mp / 200) * 100))}%`;
+        if(mpBar) mpBar.style.width = `${Math.min(100, (p.mp / 200) * 100)}%`;
     });
     
     document.getElementById('p1-area').classList.toggle("active", turn === p1);
@@ -191,9 +185,9 @@ function changeTurn() {
 
 function log(msg, color = "#fff") {
     const logArea = document.querySelector('.log-section #log');
-    if(logArea) {
+    if(!logArea) {
         const p = document.createElement('p'); p.style.color = color; p.innerHTML = `> ${msg}`;
-        logArea.appendChild(p);
+        document.getElementById('log').appendChild(p);
         const container = document.getElementById('log-container');
         if(container) container.scrollTop = container.scrollHeight;
     }
