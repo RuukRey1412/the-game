@@ -1,9 +1,10 @@
 const socket = io();
 
+// カードデータ
 const CARDS = {
     atk: [
-        { name: "あずなさん", atk: 10, mp: 5, sex: "女", desc: "成功時、MPを15回復", effect: (u) => { u.mp = Math.min(100, u.mp + 15); return "MP15回復"; } },
-        { name: "上田さん", atk: 5, mp: 5, sex: "女", desc: "成功時、HPを10回復", effect: (u) => { u.hp = Math.min(999, u.hp + 10); return "HP10回復"; } },
+        { name: "あずなさん", atk: 10, mp: 5, sex: "女", desc: "成功時、MPを15回復", effect: (u) => { u.mp = Math.min(200, u.mp + 15); return "MP15回復"; } },
+        { name: "上田さん", atk: 5, mp: 5, sex: "女", desc: "成功時、HPを10回復", effect: (u) => { u.hp = Math.min(200, u.hp + 10); return "HP10回復"; } },
         { name: "まゆさん", atk: 5, mp: 5, sex: "女", desc: "標準攻撃" },
         { name: "てぃあな", atk: 15, mp: 5, sex: "女", desc: "相手手札1枚破棄", effect: (u, t) => { if(t.hand.length > 0) { t.hand.splice(Math.floor(Math.random()*t.hand.length),1); return "相手手札1枚破棄"; } return ""; } },
         { name: "岡村桜介", atk: 20, mp: 8, sex: "男", desc: "物理一撃" },
@@ -15,20 +16,20 @@ const CARDS = {
         { name: "TOIEC400点", def: 4, mp: 4, weight: 12, sex: "無", desc: "標準防御" },
         { name: "TOIEC500点", def: 5, mp: 5, weight: 12, sex: "無", desc: "手札+1", effect: (u) => { drawCard(u); return "手札+1"; } },
         { name: "TOIEC600点", def: 6, mp: 6, weight: 8, sex: "無", desc: "手札+2", effect: (u) => { drawCard(u); drawCard(u); return "手札+2"; } },
-        { name: "TOIEC700点", def: 7, mp: 7, weight: 7, sex: "無", desc: "MP10回復 & 手札+1", effect: (u) => { u.mp = Math.min(100, u.mp + 10); drawCard(u); return "MP10回復&手札+1"; } },
-        { name: "TOIEC800点", def: 8, mp: 8, weight: 6, sex: "無", desc: "MP10回復 & 手札+2", effect: (u) => { u.mp = Math.min(100, u.mp + 10); drawCard(u); drawCard(u); return "MP10回復&手札+2"; } },
+        { name: "TOIEC700点", def: 7, mp: 7, weight: 7, sex: "無", desc: "MP10回復 & 手札+1", effect: (u) => { u.mp = Math.min(200, u.mp + 10); drawCard(u); return "MP10回復&手札+1"; } },
+        { name: "TOIEC800点", def: 8, mp: 8, weight: 6, sex: "無", desc: "MP10回復 & 手札+2", effect: (u) => { u.mp = Math.min(200, u.mp + 10); drawCard(u); drawCard(u); return "MP10回復&手札+2"; } },
         { name: "大石先生の教鞭", def: 10, mp: 10, weight: 5, sex: "男", desc: "標準防御" },
         { name: "高橋先生の経験", def: 100, mp: 30, weight: 3, sex: "女", desc: "絶対防御" },
         { name: "市原君の実力", def: 7, mp: 5, weight: 11, sex: "男", desc: "対「太田」防御力1", calcDef: (atk) => (atk && atk.name === "太田") ? 1 : 7 },
         { name: "鳥塚君の実力", def: 7, mp: 5, weight: 11, sex: "無", desc: "対「太田」防御力1", calcDef: (atk) => (atk && atk.name === "太田") ? 1 : 7 },
         { name: "まどかさんのやさしさ", def: 10, mp: 10, weight: 8, sex: "女", desc: "対「かなた」防御力100", calcDef: (atk) => (atk && atk.name === "かなた") ? 100 : 10 },
         { name: "ゆいこさん", def: 20, mp: 20, weight: 8, sex: "女", desc: "高防御" },
-        { name: "学長ゼミ室", def: 1, mp: 10, weight: 9, sex: "無", desc: "HPを50回復する", effect: (u) => { u.hp = Math.min(999, u.hp + 50); return "HP50回復"; } }
+        { name: "学長ゼミ室", def: 1, mp: 10, weight: 9, sex: "無", desc: "HPを50回復する", effect: (u) => { u.hp = Math.min(200, u.hp + 50); return "HP50回復"; } }
     ],
     sup: [
-        { name: "きざしのリーダーシップ", mp: 10, weight: 10, desc: "HP20回復, MP10回復, 手札+1", effect: (u) => { u.hp = Math.min(999, u.hp + 20); u.mp = Math.min(100, u.mp + 10); drawCard(u); return "HP20&MP10回復, 手札+1"; } },
-        { name: "てつやのリーダーシップ", mp: 8, weight: 15, desc: "HP10回復, MP10回復", effect: (u) => { u.hp = Math.min(999, u.hp + 10); u.mp = Math.min(100, u.mp + 10); return "HP10&MP10回復"; } },
-        { name: "和成のリーダーシップ", mp: 7, weight: 15, desc: "HP10回復", effect: (u) => { u.hp = Math.min(999, u.hp + 10); return "HP10回復"; } },
+        { name: "きざしのリーダーシップ", mp: 10, weight: 10, desc: "HP20回復, MP10回復, 手札+1", effect: (u) => { u.hp = Math.min(200, u.hp + 20); u.mp = Math.min(200, u.mp + 10); drawCard(u); return "HP20&MP10回復, 手札+1"; } },
+        { name: "てつやのリーダーシップ", mp: 8, weight: 15, desc: "HP10回復, MP10回復", effect: (u) => { u.hp = Math.min(200, u.hp + 10); u.mp = Math.min(200, u.mp + 10); return "HP10&MP10回復"; } },
+        { name: "和成のリーダーシップ", mp: 7, weight: 15, desc: "HP10回復", effect: (u) => { u.hp = Math.min(200, u.hp + 10); return "HP10回復"; } },
         { name: "そうすけの威厳", mp: 30, weight: 5, desc: "相手に20ダメージ", effect: (u, t) => { t.hp -= 20; return "相手に20ダメージ！"; } },
         { name: "ゆうすけの尊厳", mp: 20, weight: 10, desc: "手札2枚得る", effect: (u) => { drawCard(u); drawCard(u); return "手札+2"; } },
         { name: "りりこさんの知見", mp: 25, weight: 10, desc: "手札3枚得る", effect: (u) => { drawCard(u); drawCard(u); drawCard(u); return "手札+3"; } },
@@ -39,14 +40,16 @@ const CARDS = {
     ]
 };
 
-let p1 = { id: 'p1', hp: 100, mp: 50, hand: [] }, p2 = { id: 'p2', hp: 100, mp: 50, hand: [] };
+// ステータス初期値の変更 (HP: 200, MP: 150)
+let p1 = { id: 'p1', hp: 200, mp: 150, hand: [] }, p2 = { id: 'p2', hp: 200, mp: 150, hand: [] };
 let myRole = null, turn = p1, phase = "MAIN", currentAttack = null;
 let isProcessing = false;
 
 socket.on('assign-role', (role) => { myRole = role; updateUI(); });
 
 socket.on('start-game', () => {
-    p1.hand = []; p2.hand = []; p1.hp = 100; p2.hp = 100; p1.mp = 50; p2.mp = 50;
+    // ゲーム開始時のリセット設定
+    p1.hand = []; p2.hand = []; p1.hp = 200; p2.hp = 200; p1.mp = 150; p2.mp = 150;
     phase = "MAIN"; turn = p1; isProcessing = false;
     if(myRole === 'p1') {
         for(let i=0; i<7; i++) {
@@ -59,10 +62,11 @@ socket.on('start-game', () => {
 
 socket.on('sync-action', (data) => {
     const actor = data.playerId === 'p1' ? p1 : p2;
+    if (data.type === 'use' && actor.hand[data.idx] && actor.hand[data.idx].type === 'atk') {
+        phase = "DEFENSE";
+    }
     if (data.type === 'use') executeCard(actor, data.idx);
     else if (data.type === 'skip') executeSkip(actor);
-    
-    // アクション同期が完了したら、自分の役割に関係なく一律でフラグ解除
     isProcessing = false;
     updateUI();
 });
@@ -82,10 +86,7 @@ socket.on('sync-draw', (data) => {
     updateUI();
 });
 
-function drawCard(p) {
-    // ドローのリクエストは常に許可（手札上限なし）
-    socket.emit('request-draw', { playerId: p.id });
-}
+function drawCard(p) { socket.emit('request-draw', { playerId: p.id }); }
 
 function updateUI() {
     [p1, p2].forEach(p => {
@@ -93,8 +94,13 @@ function updateUI() {
         const mpEl = document.getElementById(`${p.id}-mp`);
         if(hpEl) hpEl.innerText = Math.max(0, p.hp);
         if(mpEl) mpEl.innerText = p.mp;
+        
+        // 最大値 200 に基づくデザイン最適化（プログレスバー計算）
         const hpBar = document.getElementById(`${p.id}-hp-bar`);
-        if(hpBar) hpBar.style.width = `${Math.min(100, (p.hp / 200) * 100)}%`;
+        if(hpBar) hpBar.style.width = `${Math.max(0, Math.min(100, (p.hp / 200) * 100))}%`;
+        
+        const mpBar = document.getElementById(`${p.id}-mp-bar`);
+        if(mpBar) mpBar.style.width = `${Math.max(0, Math.min(100, (p.mp / 200) * 100))}%`;
     });
     
     document.getElementById('p1-area').classList.toggle("active", turn === p1);
@@ -119,7 +125,9 @@ function renderHand(id, p) {
         d.innerHTML = `<b>${c.name}</b><small>${spec} MP:${c.mp}</small>`;
         
         const isMyTurn = (turn.id === myRole);
-        const canUse = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def");
+        const canUse = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || 
+                      (phase === "DEFENSE" && c.type === "def") || 
+                      (currentAttack !== null && c.type === "def");
         
         if (p.id === myRole && isMyTurn && canUse && p.mp >= c.mp && !isProcessing) {
             d.onclick = () => {
@@ -138,24 +146,22 @@ function renderHand(id, p) {
 function executeCard(p, i) {
     const c = p.hand[i], target = (p === p1) ? p2 : p1, name = p.id.toUpperCase();
     p.mp -= c.mp;
-    if (phase === "MAIN") {
+    if (phase === "MAIN" && c.type !== "def") {
         if (c.type === "atk") {
             currentAttack = c; p.hand.splice(i, 1); phase = "DEFENSE"; turn = target;
             log(`${name} の攻撃: ${c.name}`, "#ff4757");
         } else {
-            if(c.effect) { const res = c.effect(p, target); log(`${name} の支援: ${c.name} (${res})`, "#9b59b6"); }
+            if(c.effect) { const res = c.effect(p, target); log(`${name} の支援: ${c.name} (${res||""})`, "#9b59b6"); }
             p.hand.splice(i, 1);
             checkWin(); changeTurn();
         }
     } else {
-        let finalAtk = currentAttack.calcAtk ? currentAttack.calcAtk(c) : currentAttack.atk;
-        let finalDef = c.calcDef ? c.calcDef(currentAttack) : c.def;
+        let finalAtk = currentAttack ? (currentAttack.calcAtk ? currentAttack.calcAtk(c) : currentAttack.atk) : 0;
+        let finalDef = c.calcDef ? c.calcDef(currentAttack) : (c.def || 0);
         let dmg = Math.max(0, finalAtk - finalDef);
         p.hp -= dmg;
         if (c.effect) c.effect(p);
         p.hand.splice(i, 1); phase = "MAIN"; currentAttack = null; checkWin(); 
-        // 防御成功後、ターンプレイヤー（攻撃した側）にカードを引かせるのではなく
-        // 単にフェーズを戻して続行
         updateUI();
     }
 }
@@ -170,7 +176,8 @@ function takeAction() {
 
 function executeSkip(p) {
     if (phase === "DEFENSE") {
-        p.hp -= currentAttack.atk; log(`${p.id.toUpperCase()} は ${currentAttack.atk}ダメ受けた`, "#ff4757");
+        let dmg = currentAttack ? currentAttack.atk : 0;
+        p.hp -= dmg; log(`${p.id.toUpperCase()} は ${dmg}ダメ受けた`, "#ff4757");
         phase = "MAIN"; currentAttack = null; checkWin();
     } else changeTurn();
 }
@@ -178,8 +185,7 @@ function executeSkip(p) {
 function changeTurn() { 
     turn = (turn === p1) ? p2 : p1; 
     phase = "MAIN"; 
-    // ターン開始時にそのプレイヤーに1枚引かせる
-    drawCard(turn);
+    drawCard(turn); 
     log(`--- ${turn.id.toUpperCase()}のターン ---`, "#f1c40f"); 
 }
 
