@@ -12,6 +12,11 @@
         <button onclick="location.reload()">もう一度遊ぶ</button>
     </div>
 
+    <div id="destroy-popup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background: #1a1a24; border: 2px solid var(--gold); padding: 20px; z-index: 2000; border-radius: 15px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8);">
+    <p id="destroy-msg" style="color: white; margin-bottom: 20px;">カードがランダムで破壊されます。</p>
+    <button onclick="confirmDestruction()" style="background: var(--gold); color: black; border: none; padding: 10px 30px; border-radius: 5px; cursor: pointer; font-weight: bold;">了解</button>
+</div>
+
     <div id="main-layout">
         <div id="game-container">
             <div id="p1-area" class="player-box">
