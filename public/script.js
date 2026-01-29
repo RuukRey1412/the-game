@@ -87,8 +87,7 @@ async function destroyHand(targetPlayer, count) {
     for (let i = 0; i < count; i++) {
         if (targetPlayer.hand.length > 0) {
             const idx = Math.floor(Math.random() * targetPlayer.hand.length);
-            const handId = `${targetPlayer.id}-hand`;
-            const handElement = document.getElementById(handId);
+            const handElement = document.getElementById(`${targetPlayer.id}-hand`);
             if(handElement && handElement.children[idx]) {
                 handElement.children[idx].classList.add('tearing');
                 await new Promise(r => setTimeout(r, 700));
@@ -124,6 +123,7 @@ function updateUI() {
         document.getElementById(`${p.id}-mp-bar`).style.width = `${(p.mp / MAX_MP) * 100}%`;
     });
 
+    // IDによる厳密なアクティブ判定
     document.getElementById('p1-area').classList.toggle("active", turn.id === 'p1');
     document.getElementById('p2-area').classList.toggle("active", turn.id === 'p2');
     
@@ -134,7 +134,7 @@ function updateUI() {
     renderHand('p1-hand', p1); renderHand('p2-hand', p2);
     
     const sBtn = document.getElementById('skip-btn');
-    // 重要：攻撃を受けた側（ターンの持ち主）に確実にボタンを出す判定
+    // ターンの持ち主にボタンを表示
     if (turn.id === myRole && phase !== "DRAW") { 
         sBtn.style.display = "block"; 
         sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了"; 
@@ -152,10 +152,7 @@ function renderHand(id, p) {
         const canUse = (phase === "MAIN" && c.type !== "def") || (phase === "DEFENSE" && c.type === "def");
         
         if (isMyRole && isMyTurn && canUse && p.mp >= c.mp && !isProcessing) {
-            d.onclick = () => { 
-                isProcessing = true; 
-                socket.emit('player-action', {type:'use', playerId:myRole, idx:i}); 
-            };
+            d.onclick = () => { isProcessing = true; socket.emit('player-action', {type:'use', playerId:myRole, idx:i}); };
         } else { d.style.opacity = "0.3"; }
         d.onmouseover = () => { document.getElementById('card-detail').innerText = `${c.name}: ${c.desc}`; };
         el.appendChild(d);
@@ -168,7 +165,7 @@ async function executeCard(p, i) {
     if (phase === "MAIN") {
         if (c.type === "atk") {
             currentAttack = c; p.hand.splice(i, 1);
-            phase = "DEFENSE"; turn = target; // ここで相手にターンを渡す
+            phase = "DEFENSE"; turn = target; // 相手にターンを渡して防御フェーズへ
             log(`${p.id.toUpperCase()}の攻撃: ${c.name}`);
         } else {
             const r = c.effect ? await c.effect(p, target) : ""; 
@@ -200,7 +197,12 @@ async function executeSkip(p) {
     } else changeTurn();
 }
 
-function changeTurn() { checkWin(); turn = (turn === p1) ? p2 : p1; phase = "DRAW"; log(`--- ${turn.id.toUpperCase()}の番 ---`); }
+function changeTurn() { 
+    checkWin(); 
+    turn = (turn.id === 'p1') ? p2 : p1; 
+    phase = "DRAW"; 
+    log(`--- ${turn.id.toUpperCase()}の番 ---`); 
+}
 
 function log(msg) {
     const l = document.getElementById('log'); if(l) { const p = document.createElement('p'); p.innerText = `> ${msg}`; l.appendChild(p);
