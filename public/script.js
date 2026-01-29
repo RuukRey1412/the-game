@@ -41,7 +41,7 @@ const CARDS = {
 
 let p1 = { id: 'p1', hp: 100, mp: 50, hand: [] }, p2 = { id: 'p2', hp: 100, mp: 50, hand: [] };
 let myRole = null, turn = p1, phase = "MAIN", currentAttack = null;
-let isProcessing = false; // 二重クリック防止フラグ
+let isProcessing = false;
 
 socket.on('assign-role', (role) => { myRole = role; log(`あなたは ${role==='p1'?'PLAYER A':'PLAYER B'} です`, "#f1c40f"); });
 
@@ -57,7 +57,8 @@ socket.on('start-game', () => {
 });
 
 socket.on('sync-action', (data) => {
-    isProcessing = false; // 通信が完了したのでフラグを解除
+    // 同期が届いたら自分の処理中フラグを解除
+    isProcessing = false; 
     const actor = data.playerId === 'p1' ? p1 : p2;
     if (data.type === 'use') executeCard(actor, data.idx);
     else if (data.type === 'skip') executeSkip(actor);
@@ -75,7 +76,7 @@ socket.on('sync-draw', (data) => {
         let rw = data.card.seed * total;
         for (const c of pool) { if (rw < c.weight) { card = {...c, type:data.card.type}; break; } rw -= c.weight; }
     }
-    p.hand.push(card); // 手札制限を撤廃
+    p.hand.push(card);
     updateUI();
 });
 
@@ -85,15 +86,24 @@ function updateUI() {
     [p1, p2].forEach(p => {
         document.getElementById(`${p.id}-hp`).innerText = Math.max(0, p.hp);
         document.getElementById(`${p.id}-mp`).innerText = p.mp;
-        document.getElementById(`${p.id}-hp-bar`).style.width = `${Math.min(100, (p.hp / 200) * 100)}%`; // バーの最大値を暫定200に
+        document.getElementById(`${p.id}-hp-bar`).style.width = `${Math.min(100, (p.hp / 200) * 100)}%`;
         document.getElementById(`${p.id}-mp-bar`).style.width = `${(p.mp / 100) * 100}%`;
     });
     document.getElementById('p1-area').classList.toggle("active", turn === p1);
     document.getElementById('p2-area').classList.toggle("active", turn === p2);
     renderHand('p1-hand', p1); renderHand('p2-hand', p2);
     const sBtn = document.getElementById('skip-btn');
-    sBtn.style.display = (turn.id === myRole) ? "block" : "none";
-    sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了";
+    
+    // 自分のターンの時のみボタンを表示
+    if (turn.id === myRole) {
+        sBtn.style.display = "block";
+        sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了";
+        // 処理中はボタンを無効化
+        sBtn.disabled = isProcessing;
+        sBtn.style.opacity = isProcessing ? "0.5" : "1";
+    } else {
+        sBtn.style.display = "none";
+    }
 }
 
 function renderHand(id, p) {
@@ -102,15 +112,23 @@ function renderHand(id, p) {
         const d = document.createElement('div'); d.className = `card ${c.type}`;
         let spec = c.type === 'atk' ? `攻:${c.atk}` : c.type === 'def' ? `防:${c.def}` : `援`;
         d.innerHTML = `<b>${c.name}</b><small>${spec} MP:${c.mp}</small>`;
-        if (p.id === myRole && turn === p && !isProcessing) {
-            let can = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def");
-            if (can && p.mp >= c.mp) {
-                d.onclick = () => {
-                    isProcessing = true; // クリック時にフラグを立てる
-                    socket.emit('player-action', {type:'use', playerId:myRole, idx:i});
-                }
-            } else d.style.opacity = "0.3";
-        } else d.style.opacity = "0.3";
+        
+        // カードが使える条件
+        const isMyTurn = (turn.id === myRole);
+        const hasMP = (p.mp >= c.mp);
+        const correctPhase = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def");
+        
+        if (p.id === myRole && isMyTurn && hasMP && correctPhase && !isProcessing) {
+            d.onclick = () => {
+                isProcessing = true; // 通信開始
+                socket.emit('player-action', {type:'use', playerId:myRole, idx:i});
+                updateUI(); // 即座にUIを更新してボタン等を無効化
+            };
+        } else {
+            d.style.opacity = "0.3";
+            d.style.cursor = "default";
+        }
+        
         d.onmouseover = () => { document.getElementById('card-detail').innerHTML = `<span class="detail-name">${c.name}</span><div class="detail-effect">${c.desc}<br>性別:${c.sex}</div>`; };
         el.appendChild(d);
     });
@@ -145,6 +163,7 @@ function takeAction() {
     if (turn.id === myRole && !isProcessing) {
         isProcessing = true;
         socket.emit('player-action', {type:'skip', playerId:myRole});
+        updateUI();
     }
 }
 
@@ -154,7 +173,14 @@ function executeSkip(p) {
         phase = "MAIN"; currentAttack = null; checkWin(); drawCard(turn);
     } else changeTurn();
 }
-function changeTurn() { turn = (turn === p1) ? p2 : p1; phase = "MAIN"; drawCard(turn); log(`--- ${turn.id.toUpperCase()}のターン ---`, "#f1c40f"); }
+
+function changeTurn() { 
+    turn = (turn === p1) ? p2 : p1; 
+    phase = "MAIN"; 
+    drawCard(turn); 
+    log(`--- ${turn.id.toUpperCase()}のターン ---`, "#f1c40f"); 
+}
+
 function log(msg, color = "#fff") {
     const logArea = document.querySelector('.log-section #log');
     const container = document.getElementById('log-container');
@@ -163,6 +189,7 @@ function log(msg, color = "#fff") {
         logArea.appendChild(p); if(container) container.scrollTop = container.scrollHeight;
     }
 }
+
 function checkWin() {
     if (p1.hp <= 0 || p2.hp <= 0) {
         document.getElementById('overlay').style.display = "flex";
