@@ -1,54 +1,31 @@
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; }
-body { background: #1a1a1a; color: white; overflow: hidden; touch-action: manipulation; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden; }
 
-#game-container {
-    display: flex; flex-direction: column; height: 100vh; justify-content: space-between; padding: 10px;
-}
+#game-container { display: flex; flex-direction: column; height: 100vh; padding: 10px; }
+.player-area { background: #222; padding: 10px; border: 1px solid #444; margin: 5px 0; }
+.player-area.active { border: 2px solid #f1c40f; }
 
-.player-area {
-    background: rgba(255, 255, 255, 0.05); border-radius: 15px; padding: 10px;
-    display: flex; flex-direction: column; gap: 10px; transition: 0.3s;
-}
-.player-area.active { background: rgba(241, 196, 15, 0.15); box-shadow: 0 0 15px rgba(241, 196, 15, 0.3); }
+.bar-bg { background: #000; height: 10px; width: 100%; margin: 5px 0; }
+.bar { height: 100%; transition: width 0.3s; }
+.bar.hp { background: #ff4757; }
+.bar.mp { background: #2ecc71; }
 
-.status-panel { padding: 5px; }
-.player-name { font-weight: bold; font-size: 14px; margin-bottom: 5px; color: #f1c40f; }
-
-.status-bar-container { width: 100%; margin-bottom: 8px; }
-.bar-label { font-size: 12px; margin-bottom: 3px; font-weight: bold; }
-.bar-bg { background: #333; height: 12px; border-radius: 6px; overflow: hidden; border: 1px solid #444; }
-.bar { height: 100%; transition: width 0.4s ease-out; }
-.bar.hp { background: linear-gradient(90deg, #ff4757, #ff6b81); }
-.bar.mp { background: linear-gradient(90deg, #2ecc71, #55efc4); }
-
-.hand {
-    display: flex; gap: 5px; overflow-x: auto; padding: 5px; min-height: 90px;
-    scrollbar-width: none;
-}
-.hand::-webkit-scrollbar { display: none; }
-
+.hand { display: flex; gap: 5px; overflow-x: auto; padding: 10px 0; min-height: 100px; }
 .card {
-    min-width: 70px; height: 90px; border-radius: 8px; border: 2px solid #fff;
-    padding: 5px; display: flex; flex-direction: column; justify-content: space-between;
-    font-size: 10px; cursor: pointer; background: #2c3e50; text-align: center;
+    min-width: 80px; height: 110px; background: #333; border: 1px solid #fff;
+    padding: 5px; cursor: pointer; font-size: 11px; text-align: center;
+    display: flex; flex-direction: column; justify-content: space-between;
 }
-.card.atk { border-color: #ff4757; background: #4b1b1b; }
-.card.def { border-color: #2ecc71; background: #1b4b2c; }
-.card.sup { border-color: #9b59b6; background: #3a1b4b; }
+.card.atk { border-color: #ff4757; }
+.card.def { border-color: #2ecc71; }
+.card.sup { border-color: #9b59b6; }
 
-.center-panel { flex: 1; display: flex; flex-direction: column; padding: 10px; gap: 10px; }
-#log-container { flex: 1; background: #000; border-radius: 10px; padding: 10px; overflow-y: auto; font-size: 12px; border: 1px solid #333; }
-#card-detail { height: 50px; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 10px; font-size: 12px; text-align: center; }
-
-#skip-btn {
-    width: 100%; padding: 12px; background: #f1c40f; border: none; border-radius: 10px;
-    font-weight: bold; color: #000; font-size: 16px; cursor: pointer;
-}
-#skip-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.center-panel { flex: 1; display: flex; flex-direction: column; gap: 5px; overflow: hidden; }
+#log-container { flex: 1; background: #000; padding: 10px; overflow-y: auto; border: 1px solid #444; font-size: 12px; }
+#card-detail { background: #222; padding: 5px; font-size: 12px; height: 40px; border: 1px solid #444; }
+#skip-btn { padding: 10px; background: #f1c40f; font-weight: bold; cursor: pointer; }
 
 #overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 100;
+    background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center;
 }
-#result-box { text-align: center; }
-#result-box button { margin-top: 20px; padding: 10px 20px; font-size: 18px; }
