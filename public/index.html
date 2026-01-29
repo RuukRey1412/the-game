@@ -7,13 +7,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>学長ゼミバトル</h2>
+            <input type="text" id="room-input" placeholder="合言葉を入力">
+            <button onclick="joinRoom()">入室する</button>
+            <p id="wait-msg" style="display:none;">対戦相手を待っています...</p>
+        </div>
+    </div>
+
     <div id="overlay">
         <h1 id="winner-msg">WINNER!</h1>
         <button onclick="location.reload()">もう一度遊ぶ</button>
     </div>
 
-    <div id="main-layout">
-        <div id="game-container">
+    <div id="main-layout" style="display:none;"> <div id="game-container">
             <div id="role-indicator">あなたは: <span id="my-role-label">接続中...</span></div>
             
             <div id="p1-area" class="player-box">
