@@ -25,7 +25,7 @@ const CARDS = {
         { name: "学長ゼミ室", def: 1, mp: 10, weight: 9, sex: "無", desc: "HPを50回復する", effect: async (u) => { u.hp = Math.min(MAX_HP, u.hp + 50); return "HP50回復"; } }
     ],
     sup: [
-        { name: "きざしのリーダーシップ", mp: 10, weight: 9.9, desc: "HP20回復, MP10回復, 手札+1", effect: async (u) => { u.hp = Math.min(MAX_HP, u.hp + 20); u.mp = Math.min(MAX_MP, u.mp + 10); if(u.id === myRole) drawCard(u); return "HP20&MP10回復, 手札+1"; } },
+        { name: "きざしのリーダーシップ", mp: 10, weight: 1.0, desc: "HP20回復, MP10回復, 手札+1", effect: async (u) => { u.hp = Math.min(MAX_HP, u.hp + 20); u.mp = Math.min(MAX_MP, u.mp + 10); if(u.id === myRole) drawCard(u); return "HP20&MP10回復, 手札+1"; } },
         { name: "てつやのリーダーシップ", mp: 8, weight: 9.9, desc: "HP10回復, MP10回復", effect: async (u) => { u.hp = Math.min(MAX_HP, u.hp + 10); u.mp = Math.min(MAX_MP, u.mp + 10); return "HP10&MP10回復"; } },
         { name: "和成のリーダーシップ", mp: 7, weight: 9.9, desc: "HP10回復", effect: async (u) => { u.hp = Math.min(MAX_HP, u.hp + 10); return "HP10回復"; } },
         { name: "そうすけの威厳", mp: 30, weight: 9.9, desc: "相手に20ダメージ", effect: async (u, t) => { t.hp -= 20; return "相手に20ダメージ！"; } },
@@ -35,7 +35,7 @@ const CARDS = {
         { name: "せいじの大学院進学", mp: 15, weight: 9.9, desc: "相手手札をランダムで2枚破壊", effect: async (u, t) => await destroyHand(t, 2) },
         { name: "みっちーの簿記", mp: 10, weight: 9.9, desc: "手札2枚得る", effect: async (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); } return "手札+2"; } },
         { name: "かいせの発音", mp: 20, weight: 9.9, desc: "手札3枚得る", effect: async (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); drawCard(u); } return "手札+3"; } },
-        { name: "盛川美優の妄想", mp: 40, weight: 1.0, desc: "※利用可能な場合、必ず利用しなければならない。使用時、敗北する。", effect: async (u) => { u.hp = 0; return "強制敗北！"; } }
+        { name: "盛川美優の妄想", mp: 40, weight: 9.9, desc: "※利用可能な場合、必ず利用しなければならない。使用時、敗北する。", effect: async (u) => { u.hp = 0; return "強制敗北！"; } }
     ]
 };
 
