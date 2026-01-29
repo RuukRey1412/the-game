@@ -43,10 +43,11 @@ let p1 = { id: 'p1', hp: 100, mp: 50, hand: [] }, p2 = { id: 'p2', hp: 100, mp: 
 let myRole = null, turn = p1, phase = "MAIN", currentAttack = null;
 let isProcessing = false;
 
-socket.on('assign-role', (role) => { myRole = role; log(`あなたは ${role==='p1'?'PLAYER A':'PLAYER B'} です`, "#f1c40f"); });
+socket.on('assign-role', (role) => { myRole = role; updateUI(); });
 
 socket.on('start-game', () => {
     p1.hand = []; p2.hand = []; p1.hp = 100; p2.hp = 100; p1.mp = 50; p2.mp = 50;
+    phase = "MAIN"; turn = p1; isProcessing = false;
     if(myRole === 'p1') {
         for(let i=0; i<7; i++) {
             socket.emit('request-draw', {playerId: 'p1'});
@@ -57,11 +58,12 @@ socket.on('start-game', () => {
 });
 
 socket.on('sync-action', (data) => {
-    // 同期が届いたら自分の処理中フラグを解除
-    isProcessing = false; 
     const actor = data.playerId === 'p1' ? p1 : p2;
     if (data.type === 'use') executeCard(actor, data.idx);
     else if (data.type === 'skip') executeSkip(actor);
+    
+    // アクション同期が完了したら、自分の役割に関係なく一律でフラグ解除
+    isProcessing = false;
     updateUI();
 });
 
@@ -80,27 +82,30 @@ socket.on('sync-draw', (data) => {
     updateUI();
 });
 
-function drawCard(p) { if (p.id === myRole) socket.emit('request-draw', { playerId: myRole }); }
+function drawCard(p) {
+    // ドローのリクエストは常に許可（手札上限なし）
+    socket.emit('request-draw', { playerId: p.id });
+}
 
 function updateUI() {
     [p1, p2].forEach(p => {
-        document.getElementById(`${p.id}-hp`).innerText = Math.max(0, p.hp);
-        document.getElementById(`${p.id}-mp`).innerText = p.mp;
-        document.getElementById(`${p.id}-hp-bar`).style.width = `${Math.min(100, (p.hp / 200) * 100)}%`;
-        document.getElementById(`${p.id}-mp-bar`).style.width = `${(p.mp / 100) * 100}%`;
+        const hpEl = document.getElementById(`${p.id}-hp`);
+        const mpEl = document.getElementById(`${p.id}-mp`);
+        if(hpEl) hpEl.innerText = Math.max(0, p.hp);
+        if(mpEl) mpEl.innerText = p.mp;
+        const hpBar = document.getElementById(`${p.id}-hp-bar`);
+        if(hpBar) hpBar.style.width = `${Math.min(100, (p.hp / 200) * 100)}%`;
     });
+    
     document.getElementById('p1-area').classList.toggle("active", turn === p1);
     document.getElementById('p2-area').classList.toggle("active", turn === p2);
     renderHand('p1-hand', p1); renderHand('p2-hand', p2);
-    const sBtn = document.getElementById('skip-btn');
     
-    // 自分のターンの時のみボタンを表示
+    const sBtn = document.getElementById('skip-btn');
     if (turn.id === myRole) {
         sBtn.style.display = "block";
         sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了";
-        // 処理中はボタンを無効化
         sBtn.disabled = isProcessing;
-        sBtn.style.opacity = isProcessing ? "0.5" : "1";
     } else {
         sBtn.style.display = "none";
     }
@@ -113,23 +118,19 @@ function renderHand(id, p) {
         let spec = c.type === 'atk' ? `攻:${c.atk}` : c.type === 'def' ? `防:${c.def}` : `援`;
         d.innerHTML = `<b>${c.name}</b><small>${spec} MP:${c.mp}</small>`;
         
-        // カードが使える条件
         const isMyTurn = (turn.id === myRole);
-        const hasMP = (p.mp >= c.mp);
-        const correctPhase = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def");
+        const canUse = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def");
         
-        if (p.id === myRole && isMyTurn && hasMP && correctPhase && !isProcessing) {
+        if (p.id === myRole && isMyTurn && canUse && p.mp >= c.mp && !isProcessing) {
             d.onclick = () => {
-                isProcessing = true; // 通信開始
+                isProcessing = true;
                 socket.emit('player-action', {type:'use', playerId:myRole, idx:i});
-                updateUI(); // 即座にUIを更新してボタン等を無効化
+                updateUI();
             };
         } else {
             d.style.opacity = "0.3";
             d.style.cursor = "default";
         }
-        
-        d.onmouseover = () => { document.getElementById('card-detail').innerHTML = `<span class="detail-name">${c.name}</span><div class="detail-effect">${c.desc}<br>性別:${c.sex}</div>`; };
         el.appendChild(d);
     });
 }
@@ -142,9 +143,8 @@ function executeCard(p, i) {
             currentAttack = c; p.hand.splice(i, 1); phase = "DEFENSE"; turn = target;
             log(`${name} の攻撃: ${c.name}`, "#ff4757");
         } else {
-            const res = c.effect(p, target); p.hand.splice(i, 1);
-            log(`${name} の支援: ${c.name}`, "#9b59b6");
-            if(res) log(` └ 効果: ${res}`, "#aaa");
+            if(c.effect) { const res = c.effect(p, target); log(`${name} の支援: ${c.name} (${res})`, "#9b59b6"); }
+            p.hand.splice(i, 1);
             checkWin(); changeTurn();
         }
     } else {
@@ -152,10 +152,11 @@ function executeCard(p, i) {
         let finalDef = c.calcDef ? c.calcDef(currentAttack) : c.def;
         let dmg = Math.max(0, finalAtk - finalDef);
         p.hp -= dmg;
-        log(`${name} の防御: ${c.name}`, "#2ecc71");
-        log(` └ ${dmg} ダメージを受けた！`, "#ee5253");
-        if (c.effect) log(` └ 効果: ${c.effect(p)}`, "#aaa");
-        p.hand.splice(i, 1); phase = "MAIN"; currentAttack = null; checkWin(); drawCard(turn);
+        if (c.effect) c.effect(p);
+        p.hand.splice(i, 1); phase = "MAIN"; currentAttack = null; checkWin(); 
+        // 防御成功後、ターンプレイヤー（攻撃した側）にカードを引かせるのではなく
+        // 単にフェーズを戻して続行
+        updateUI();
     }
 }
 
@@ -170,29 +171,33 @@ function takeAction() {
 function executeSkip(p) {
     if (phase === "DEFENSE") {
         p.hp -= currentAttack.atk; log(`${p.id.toUpperCase()} は ${currentAttack.atk}ダメ受けた`, "#ff4757");
-        phase = "MAIN"; currentAttack = null; checkWin(); drawCard(turn);
+        phase = "MAIN"; currentAttack = null; checkWin();
     } else changeTurn();
 }
 
 function changeTurn() { 
     turn = (turn === p1) ? p2 : p1; 
     phase = "MAIN"; 
-    drawCard(turn); 
+    // ターン開始時にそのプレイヤーに1枚引かせる
+    drawCard(turn);
     log(`--- ${turn.id.toUpperCase()}のターン ---`, "#f1c40f"); 
 }
 
 function log(msg, color = "#fff") {
     const logArea = document.querySelector('.log-section #log');
-    const container = document.getElementById('log-container');
     if(logArea) {
         const p = document.createElement('p'); p.style.color = color; p.innerHTML = `> ${msg}`;
-        logArea.appendChild(p); if(container) container.scrollTop = container.scrollHeight;
+        logArea.appendChild(p);
+        const container = document.getElementById('log-container');
+        if(container) container.scrollTop = container.scrollHeight;
     }
 }
 
 function checkWin() {
     if (p1.hp <= 0 || p2.hp <= 0) {
-        document.getElementById('overlay').style.display = "flex";
-        document.getElementById('winner-msg').innerText = (p1.hp <= 0 ? "PLAYER B" : "PLAYER A") + " WIN!";
+        const overlay = document.getElementById('overlay');
+        if(overlay) overlay.style.display = "flex";
+        const msg = document.getElementById('winner-msg');
+        if(msg) msg.innerText = (p1.hp <= 0 ? "PLAYER B" : "PLAYER A") + " WIN!";
     }
 }
