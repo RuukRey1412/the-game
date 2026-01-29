@@ -39,12 +39,12 @@ const CARDS = {
     ]
 };
 
-let p1 = { id: 'p1', hp: 200, mp: 150, hand: [] }, p2 = { id: 'p2', hp: 200, mp: 150, hand: [] };
+let p1 = { id: 'p1', hp: 100, mp: 100, hand: [] }, p2 = { id: 'p2', hp: 100, mp: 100, hand: [] };
 let myRole = null, turn = p1, phase = "MAIN", currentAttack = null, isProcessing = false;
 
 socket.on('assign-role', (role) => { myRole = role; updateUI(); });
 socket.on('start-game', () => {
-    p1.hand = []; p2.hand = []; p1.hp = 200; p2.hp = 200; p1.mp = 150; p2.mp = 150;
+    p1.hand = []; p2.hand = []; p1.hp = 100; p2.hp = 100; p1.mp = 100; p2.mp = 100;
     phase = "MAIN"; turn = p1; isProcessing = false; currentAttack = null;
     if(myRole === 'p1') { for(let i=0; i<7; i++) { socket.emit('request-draw', {playerId: 'p1'}); socket.emit('request-draw', {playerId: 'p2'}); } }
     updateUI(); log("GAME START!");
