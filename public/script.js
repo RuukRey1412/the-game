@@ -1,5 +1,8 @@
 const socket = io();
 
+// ルームID保持用
+let currentRoom = null;
+
 const MAX_HP = 200;
 const MAX_MP = 250;
 
@@ -32,9 +35,22 @@ const CARDS = {
 let p1 = { id: 'p1', hp: MAX_HP, mp: 150, hand: [] }, p2 = { id: 'p2', hp: MAX_HP, mp: 150, hand: [] };
 let myRole = null, turn = p1, phase = "DRAW", currentAttack = null, isProcessing = false;
 
+// ルームに参加する関数
+function joinRoom() {
+    const roomID = document.getElementById('room-input').value;
+    if (roomID) {
+        currentRoom = roomID;
+        socket.emit('join-room', roomID);
+        document.getElementById('wait-msg').style.display = "block";
+    }
+}
+
 socket.on('assign-role', (role) => { 
     myRole = role; 
     document.getElementById('my-role-label').innerText = role === 'p1' ? 'PLAYER A' : 'PLAYER B';
+    // ロールが割り振られたら画面を表示
+    document.getElementById('login-overlay').style.display = "none";
+    document.getElementById('main-layout').style.display = "flex";
     updateUI(); 
 });
 
@@ -86,13 +102,13 @@ async function destroyHand(targetPlayer, count) {
     return destroyedCount > 0 ? `相手手札${destroyedCount}枚破壊` : "破壊失敗";
 }
 
-function drawCard(p) { socket.emit('request-draw', { playerId: p.id }); }
+function drawCard(p) { socket.emit('request-draw', { playerId: p.id, roomID: currentRoom }); }
 
 function manualDraw() {
     if (turn.id === myRole && phase === "DRAW" && !isProcessing) {
         isProcessing = true;
         drawCard(turn);
-        socket.emit('player-action', {type:'phase-draw', playerId:myRole});
+        socket.emit('player-action', {type:'phase-draw', playerId:myRole, roomID: currentRoom});
     }
 }
 
@@ -134,7 +150,7 @@ function renderHand(id, p) {
             d.innerHTML = `<b>${c.name}</b><br><small>${spec} MP:${c.mp}</small>`;
             const canUse = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def");
             if (turn.id === myRole && canUse && p.mp >= c.mp && !isProcessing) {
-                d.onclick = () => { isProcessing = true; socket.emit('player-action', {type:'use', playerId:myRole, idx:i}); };
+                d.onclick = () => { isProcessing = true; socket.emit('player-action', {type:'use', playerId:myRole, idx:i, roomID: currentRoom}); };
             } else { d.style.opacity = "0.3"; }
             d.onmouseover = () => { document.getElementById('card-detail').innerText = `${c.name}: ${c.desc}`; };
         }
@@ -158,14 +174,13 @@ async function executeCard(p, i) {
             currentAttack = c; 
             p.hand.splice(i, 1); 
             phase = "DEFENSE"; 
-            turn = target; // 攻撃中、操作権を防御側に移す
+            turn = target; 
             log(`${p.id.toUpperCase()}の攻撃: ${c.name}`);
             if (c.effect) await c.effect(p, target);
         } else if (c.type === "sup") { 
             const r = c.effect ? await c.effect(p, target) : ""; 
             log(`${p.id.toUpperCase()}の支援: ${c.name}${r?' ('+r+')':''}`);
             p.hand.splice(i, 1); 
-            // 支援カード使用後は、相手のターン(ドロー)にする
             startNextPlayerTurn(target);
         }
     } else if (phase === "DEFENSE") {
@@ -174,7 +189,6 @@ async function executeCard(p, i) {
         log(`${p.id.toUpperCase()}の防御: ${c.name} (${dmg}ダメージ)`);
         if (c.effect) await c.effect(p);
         p.hand.splice(i, 1); 
-        // 防御完了。防御したプレイヤー（自分）のターン(ドロー)を開始する
         startNextPlayerTurn(p);
     }
     updateUI();
@@ -183,7 +197,7 @@ async function executeCard(p, i) {
 function takeAction() { 
     if (turn.id === myRole && !isProcessing) { 
         isProcessing = true; 
-        socket.emit('player-action', {type:'skip', playerId:myRole}); 
+        socket.emit('player-action', {type:'skip', playerId:myRole, roomID: currentRoom}); 
     } 
 }
 
@@ -192,23 +206,18 @@ async function executeSkip(p) {
         let dmg = getDamage(currentAttack, null); 
         p.hp -= dmg;
         log(`${p.id.toUpperCase()}は攻撃を受けた (${dmg}ダメージ)`);
-        // ダメージを受けたプレイヤー（自分）のターン(ドロー)を開始する
         startNextPlayerTurn(p);
     } else {
-        // メインフェーズでの「終了」：相手のターン(ドロー)にする
         const target = (p === p1) ? p2 : p1;
         startNextPlayerTurn(target);
     }
 }
 
-// ターン管理の核心部分：指定されたプレイヤーを「ドロー待ち」状態にする
 function startNextPlayerTurn(nextPlayer) {
     if (checkWin()) return;
-    
     currentAttack = null;
     phase = "DRAW";
-    turn = nextPlayer; // 次にドローアクションを行うべきプレイヤーを確実にセット
-    
+    turn = nextPlayer;
     log(`--- ${turn.id.toUpperCase()}のターン (ドロー待ち) ---`);
     updateUI();
 }
