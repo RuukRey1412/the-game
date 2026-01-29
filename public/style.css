@@ -35,11 +35,9 @@ body {
     position: relative; overflow: hidden;
 }
 
-/* 相手の手札（裏面） */
 .card.back {
     background: linear-gradient(45deg, #1a1a24 25%, #2a2a3a 50%, #1a1a24 75%);
-    border: 2px solid #444;
-    cursor: default;
+    border: 2px solid #444; cursor: default;
 }
 .card.back * { display: none; }
 
