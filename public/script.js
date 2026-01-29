@@ -49,8 +49,13 @@ socket.on('sync-action', async (data) => {
     const actor = data.playerId === 'p1' ? p1 : p2;
     if (data.type === 'use') await executeCard(actor, data.idx);
     else if (data.type === 'skip') await executeSkip(actor);
-    else if (data.type === 'phase-draw') { if(phase === "DRAW") phase = "MAIN"; }
-    isProcessing = false; updateUI();
+    else if (data.type === 'phase-draw') { 
+        if(phase === "DRAW") {
+            phase = "MAIN"; 
+        }
+    }
+    isProcessing = false; 
+    updateUI();
 });
 
 socket.on('sync-draw', (data) => {
@@ -89,9 +94,11 @@ async function destroyHand(targetPlayer, count) {
 function drawCard(p) { socket.emit('request-draw', { playerId: p.id }); }
 
 function manualDraw() {
+    // 自分のターンかつドローフェーズのみ
     if (turn.id === myRole && phase === "DRAW" && !isProcessing) {
         isProcessing = true;
         drawCard(turn);
+        // 通信でフェーズ移行を通知
         socket.emit('player-action', {type:'phase-draw', playerId:myRole});
     }
 }
@@ -151,7 +158,6 @@ function getDamage(atkC, defC) {
     return Math.max(0, a - d);
 }
 
-// コアロジック：ターンとフェーズの管理を厳密化
 async function executeCard(p, i) {
     const c = p.hand[i], target = (p === p1) ? p2 : p1;
     if(!c) return; 
@@ -159,34 +165,26 @@ async function executeCard(p, i) {
 
     if (phase === "MAIN") {
         if (c.type === "atk") { 
-            // 攻撃：フェーズを防御に移し、ターンを防御側へ
             currentAttack = c; 
             p.hand.splice(i, 1); 
             phase = "DEFENSE"; 
-            turn = target; 
-            if (c.effect) {
-                log(`${p.id.toUpperCase()}の特殊攻撃: ${c.name}`);
-                await c.effect(p, target);
-            } else {
-                log(`${p.id.toUpperCase()}の攻撃: ${c.name}`);
-            }
-            // 防御側のアクション待ちのためchangeTurnは呼ばない
+            turn = target; // 防御側にターンを渡す
+            
+            log(`${p.id.toUpperCase()}の攻撃: ${c.name}`);
+            if (c.effect) await c.effect(p, target);
+            // 防御アクション待ち
         } else if (c.type === "sup") { 
-            // 支援：効果解決後、防御フェーズを飛ばしてターン交代
             const r = c.effect ? await c.effect(p, target) : ""; 
             log(`${p.id.toUpperCase()}の支援: ${c.name}${r?' ('+r+')':''}`);
             p.hand.splice(i, 1); 
-            changeTurn(); // 防御を飛ばして相手ドローへ
+            changeTurn(); 
         }
     } else if (phase === "DEFENSE") {
-        // 防御解決
         let dmg = getDamage(currentAttack, c); 
         p.hp -= dmg;
         log(`${p.id.toUpperCase()}の防御: ${c.name} (${dmg}ダメージ)`);
         if (c.effect) await c.effect(p);
         p.hand.splice(i, 1); 
-        
-        // 攻撃解決終了：メインフェーズに戻し、ターンを本来の持ち主に交代
         finishAttackCycle();
     }
     updateUI();
@@ -206,12 +204,10 @@ async function executeSkip(p) {
         log(`${p.id.toUpperCase()}は攻撃を受けた (${dmg}ダメージ)`);
         finishAttackCycle();
     } else {
-        // メインフェーズでの終了（何もしないで交代）
         changeTurn();
     }
 }
 
-// 攻撃サイクルが終了した際の共通処理
 function finishAttackCycle() {
     phase = "MAIN"; 
     currentAttack = null; 
@@ -220,10 +216,9 @@ function finishAttackCycle() {
 
 function changeTurn() {
     if (checkWin()) return;
-    // ターン交代。必ずドローフェーズから開始させる
     turn = (turn === p1) ? p2 : p1;
-    phase = "DRAW";
-    log(`--- ${turn.id.toUpperCase()}のターン (ドローして下さい) ---`);
+    phase = "DRAW"; // ターン交代時は必ずドロー待ちにする
+    log(`--- ${turn.id.toUpperCase()}のターン (ドロー) ---`);
     updateUI();
 }
 
@@ -234,10 +229,8 @@ function log(msg) {
 }
 
 function checkWin() {
-    // HPが0以下になったら敗北
     const p1Lost = p1.hp <= 0;
     const p2Lost = p2.hp <= 0;
-
     if (p1Lost || p2Lost) {
         isProcessing = true;
         document.getElementById('overlay').style.display = "flex";
