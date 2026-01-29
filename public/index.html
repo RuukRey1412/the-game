@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学長ゼミバトル - Online</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="overlay">
+        <h1 id="winner-msg">WINNER!</h1>
+        <button onclick="location.reload()">もう一度遊ぶ</button>
+    </div>
+
+    <div id="main-layout">
+        <div id="game-container">
+            <div id="p1-area" class="player-box">
+                <div class="player-header">
+                    <span class="player-name">PLAYER A</span>
+                    <div class="stats-container">
+                        <div class="gauge-label">HP <span id="p1-hp">100</span>/999</div>
+                        <div class="gauge-bar"><div id="p1-hp-bar" class="gauge-fill hp"></div></div>
+                        <div class="gauge-label">MP <span id="p1-mp">50</span>/100</div>
+                        <div class="gauge-bar"><div id="p1-mp-bar" class="gauge-fill mp"></div></div>
+                    </div>
+                </div>
+                <div id="p1-hand" class="hand-container"></div>
+            </div>
+
+            <div id="action-center">
+                <button id="skip-btn" onclick="takeAction()" style="display:none;">なにもしないで終了</button>
+            </div>
+
+            <div id="p2-area" class="player-box">
+                <div class="player-header">
+                    <span class="player-name">PLAYER B</span>
+                    <div class="stats-container">
+                        <div class="gauge-label">HP <span id="p2-hp">100</span>/999</div>
+                        <div class="gauge-bar"><div id="p2-hp-bar" class="gauge-fill hp"></div></div>
+                        <div class="gauge-label">MP <span id="p2-mp">50</span>/100</div>
+                        <div class="gauge-bar"><div id="p2-mp-bar" class="gauge-fill mp"></div></div>
+                    </div>
+                </div>
+                <div id="p2-hand" class="hand-container"></div>
+            </div>
+        </div>
+
+        <aside id="info-panel">
+            <div class="panel-section">
+                <h2>CARD INFO</h2>
+                <div id="card-detail"><p class="placeholder">カードにホバーして詳細を表示</p></div>
+            </div>
+            <div class="panel-section log-section">
+                <h2>BATTLE LOG</h2>
+                <div id="log-container"><div id="log"></div></div>
+            </div>
+        </aside>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
