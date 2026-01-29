@@ -160,7 +160,7 @@ async function executeCard(p, i) {
     if (phase === "MAIN") {
         if (c.type === "atk") {
             currentAttack = c; p.hand.splice(i, 1);
-            phase = "DEFENSE"; turn = target; // 防御側へ
+            phase = "DEFENSE"; turn = target; 
             log(`${p.id.toUpperCase()}の攻撃: ${c.name}`);
         } else {
             const r = c.effect ? await c.effect(p, target) : ""; 
@@ -172,7 +172,9 @@ async function executeCard(p, i) {
         p.hp -= dmg; log(`${p.id.toUpperCase()}の防御: ${c.name} (${dmg}ダメ)`);
         if (currentAttack.effect) await currentAttack.effect(target, p);
         if (c.effect) await c.effect(p);
-        p.hand.splice(i, 1); phase = "MAIN"; currentAttack = null; changeTurn();
+        p.hand.splice(i, 1);
+        currentAttack = null;
+        changeTurn(); // ここを確実にchangeTurnへ
     }
 }
 
@@ -183,11 +185,17 @@ async function executeSkip(p) {
         const attacker = (p === p1) ? p2 : p1;
         p.hp -= currentAttack.atk; log(`${p.id.toUpperCase()}は受弾: ${currentAttack.atk}ダメ`);
         if (currentAttack.effect) await currentAttack.effect(attacker, p);
-        phase = "MAIN"; currentAttack = null; changeTurn();
+        currentAttack = null;
+        changeTurn(); // スキップ時も確実にchangeTurn
     } else changeTurn();
 }
 
-function changeTurn() { checkWin(); turn = (turn.id === 'p1') ? p2 : p1; phase = "DRAW"; log(`--- ${turn.id.toUpperCase()}の番 ---`); }
+function changeTurn() { 
+    checkWin(); 
+    turn = (turn.id === 'p1') ? p2 : p1; 
+    phase = "DRAW"; 
+    log(`--- ${turn.id.toUpperCase()}の番 ---`); 
+}
 
 function log(msg) {
     const l = document.getElementById('log'); if(l) { const p = document.createElement('p'); p.innerText = `> ${msg}`; l.appendChild(p);
