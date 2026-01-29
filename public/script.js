@@ -154,20 +154,40 @@ function getDamage(atkC, defC) {
 
 async function executeCard(p, i) {
     const c = p.hand[i], target = (p === p1) ? p2 : p1;
-    if(!c) return; p.mp -= c.mp;
+    if(!c) return; 
+    p.mp -= c.mp;
+
     if (phase === "MAIN") {
-        if (c.type === "atk") { currentAttack = c; p.hand.splice(i, 1); phase = "DEFENSE"; turn = target; log(`${p.id.toUpperCase()}の攻撃: ${c.name}`); }
-        else { 
+        if (c.type === "atk") { 
+            currentAttack = c; 
+            p.hand.splice(i, 1); 
+            phase = "DEFENSE"; 
+            turn = target; // ここで相手にターンを委譲
+            
+            if (c.effect) {
+                log(`${p.id.toUpperCase()}の特殊攻撃: ${c.name}`);
+                await c.effect(p, target); // 効果解決を待つ
+            } else {
+                log(`${p.id.toUpperCase()}の攻撃: ${c.name}`);
+            }
+            // 攻撃時はchangeTurnを呼ばない（防御フェーズ継続のため）
+        } else { 
             const r = c.effect ? await c.effect(p, target) : ""; 
             log(`${p.id.toUpperCase()}の支援: ${c.name}${r?' ('+r+')':''}`);
-            p.hand.splice(i, 1); changeTurn(); 
+            p.hand.splice(i, 1); 
+            changeTurn(); 
         }
-    } else {
-        let dmg = getDamage(currentAttack, c); p.hp -= dmg;
+    } else if (phase === "DEFENSE") {
+        let dmg = getDamage(currentAttack, c); 
+        p.hp -= dmg;
         log(`${p.id.toUpperCase()}の防御: ${c.name} (${dmg}ダメージ)`);
         if (c.effect) await c.effect(p);
-        p.hand.splice(i, 1); phase = "MAIN"; currentAttack = null; changeTurn();
+        p.hand.splice(i, 1); 
+        phase = "MAIN"; 
+        currentAttack = null; 
+        changeTurn();
     }
+    updateUI();
 }
 
 function takeAction() { if (turn.id === myRole && !isProcessing) { isProcessing = true; socket.emit('player-action', {type:'skip', playerId:myRole}); } }
