@@ -40,75 +40,52 @@ const CARDS = {
 };
 
 let p1 = { id: 'p1', hp: 200, mp: 150, hand: [] }, p2 = { id: 'p2', hp: 200, mp: 150, hand: [] };
-let myRole = null, turn = p1, phase = "MAIN", currentAttack = null;
-let isProcessing = false;
+let myRole = null, turn = p1, phase = "MAIN", currentAttack = null, isProcessing = false;
 
 socket.on('assign-role', (role) => { myRole = role; updateUI(); });
-
 socket.on('start-game', () => {
     p1.hand = []; p2.hand = []; p1.hp = 200; p2.hp = 200; p1.mp = 150; p2.mp = 150;
     phase = "MAIN"; turn = p1; isProcessing = false;
-    if(myRole === 'p1') {
-        for(let i=0; i<7; i++) {
-            socket.emit('request-draw', {playerId: 'p1'});
-            socket.emit('request-draw', {playerId: 'p2'});
-        }
-    }
+    if(myRole === 'p1') { for(let i=0; i<7; i++) { socket.emit('request-draw', {playerId: 'p1'}); socket.emit('request-draw', {playerId: 'p2'}); } }
     updateUI(); log("GAME START!");
 });
 
 socket.on('sync-action', (data) => {
     const actor = data.playerId === 'p1' ? p1 : p2;
-    if (data.type === 'use' && actor.hand[data.idx] && actor.hand[data.idx].type === 'atk') {
-        phase = "DEFENSE";
-    }
+    if (data.type === 'use' && actor.hand[data.idx] && actor.hand[data.idx].type === 'atk') phase = "DEFENSE";
     if (data.type === 'use') executeCard(actor, data.idx);
     else if (data.type === 'skip') executeSkip(actor);
-    isProcessing = false;
-    updateUI();
+    isProcessing = false; updateUI();
 });
 
 socket.on('sync-draw', (data) => {
     const p = data.playerId === 'p1' ? p1 : p2;
     const pool = CARDS[data.card.type];
     let card;
-    if(data.card.type==='atk') {
-        card = {...pool[Math.floor(data.card.seed * pool.length)], type:'atk'};
-    } else {
+    if(data.card.type==='atk') { card = {...pool[Math.floor(data.card.seed * pool.length)], type:'atk'}; }
+    else {
         const total = pool.reduce((s, c) => s + c.weight, 0);
         let rw = data.card.seed * total;
         for (const c of pool) { if (rw < c.weight) { card = {...c, type:data.card.type}; break; } rw -= c.weight; }
     }
-    p.hand.push(card);
-    updateUI();
+    p.hand.push(card); updateUI();
 });
 
 function drawCard(p) { socket.emit('request-draw', { playerId: p.id }); }
 
 function updateUI() {
     [p1, p2].forEach(p => {
-        const hpEl = document.getElementById(`${p.id}-hp`);
-        const mpEl = document.getElementById(`${p.id}-mp`);
-        if(hpEl) hpEl.innerText = Math.max(0, p.hp);
-        if(mpEl) mpEl.innerText = p.mp;
-        const hpBar = document.getElementById(`${p.id}-hp-bar`);
-        if(hpBar) hpBar.style.width = `${Math.min(100, (p.hp / 200) * 100)}%`;
-        const mpBar = document.getElementById(`${p.id}-mp-bar`);
-        if(mpBar) mpBar.style.width = `${Math.min(100, (p.mp / 200) * 100)}%`;
+        document.getElementById(`${p.id}-hp`).innerText = Math.max(0, p.hp);
+        document.getElementById(`${p.id}-mp`).innerText = p.mp;
+        document.getElementById(`${p.id}-hp-bar`).style.width = `${(p.hp / 200) * 100}%`;
+        document.getElementById(`${p.id}-mp-bar`).style.width = `${(p.mp / 200) * 100}%`;
     });
-    
     document.getElementById('p1-area').classList.toggle("active", turn === p1);
     document.getElementById('p2-area').classList.toggle("active", turn === p2);
     renderHand('p1-hand', p1); renderHand('p2-hand', p2);
-    
     const sBtn = document.getElementById('skip-btn');
-    if (turn.id === myRole) {
-        sBtn.style.display = "block";
-        sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了";
-        sBtn.disabled = isProcessing;
-    } else {
-        sBtn.style.display = "none";
-    }
+    if (turn.id === myRole) { sBtn.style.display = "block"; sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了"; sBtn.disabled = isProcessing; }
+    else { sBtn.style.display = "none"; }
 }
 
 function renderHand(id, p) {
@@ -116,88 +93,42 @@ function renderHand(id, p) {
     p.hand.forEach((c, i) => {
         const d = document.createElement('div'); d.className = `card ${c.type}`;
         let spec = c.type === 'atk' ? `攻:${c.atk}` : c.type === 'def' ? `防:${c.def}` : `援`;
-        d.innerHTML = `<b>${c.name}</b><small>${spec} MP:${c.mp}</small>`;
-        
+        d.innerHTML = `<b>${c.name}</b><br><small>${spec} MP:${c.mp}</small>`;
         const isMyTurn = (turn.id === myRole);
-        const canUse = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || 
-                      (phase === "DEFENSE" && c.type === "def") || 
-                      (currentAttack !== null && c.type === "def");
-        
+        const canUse = (phase === "MAIN" && (c.type === "atk" || c.type === "sup")) || (phase === "DEFENSE" && c.type === "def") || (currentAttack !== null && c.type === "def");
         if (p.id === myRole && isMyTurn && canUse && p.mp >= c.mp && !isProcessing) {
-            d.onclick = () => {
-                isProcessing = true;
-                socket.emit('player-action', {type:'use', playerId:myRole, idx:i});
-                updateUI();
-            };
-        } else {
-            d.style.opacity = "0.3";
-            d.style.cursor = "default";
-        }
+            d.onclick = () => { isProcessing = true; socket.emit('player-action', {type:'use', playerId:myRole, idx:i}); updateUI(); };
+        } else { d.style.opacity = "0.3"; }
+        d.onmouseover = () => { document.getElementById('card-detail').innerText = `${c.name}: ${c.desc}`; };
         el.appendChild(d);
     });
 }
 
 function executeCard(p, i) {
-    const c = p.hand[i], target = (p === p1) ? p2 : p1, name = p.id.toUpperCase();
+    const c = p.hand[i], target = (p === p1) ? p2 : p1;
     p.mp -= c.mp;
     if (phase === "MAIN" && c.type !== "def") {
-        if (c.type === "atk") {
-            currentAttack = c; p.hand.splice(i, 1); phase = "DEFENSE"; turn = target;
-            log(`${name} の攻撃: ${c.name}`, "#ff4757");
-        } else {
-            if(c.effect) { const res = c.effect(p, target); log(`${name} の支援: ${c.name} (${res||""})`, "#9b59b6"); }
-            p.hand.splice(i, 1);
-            checkWin(); changeTurn();
-        }
+        if (c.type === "atk") { currentAttack = c; p.hand.splice(i, 1); phase = "DEFENSE"; turn = target; log(`${p.id}の攻撃: ${c.name}`); }
+        else { if(c.effect) { const r = c.effect(p, target); log(`${p.id}の支援: ${c.name} (${r||""})`); } p.hand.splice(i, 1); checkWin(); changeTurn(); }
     } else {
-        let finalAtk = currentAttack ? (currentAttack.calcAtk ? currentAttack.calcAtk(c) : currentAttack.atk) : 0;
-        let finalDef = c.calcDef ? c.calcDef(currentAttack) : (c.def || 0);
-        let dmg = Math.max(0, finalAtk - finalDef);
-        p.hp -= dmg;
-        if (c.effect) c.effect(p);
-        p.hand.splice(i, 1); phase = "MAIN"; currentAttack = null; checkWin(); 
-        updateUI();
+        let a = currentAttack ? (currentAttack.calcAtk ? currentAttack.calcAtk(c) : currentAttack.atk) : 0;
+        let d = c.calcDef ? c.calcDef(currentAttack) : (c.def || 0);
+        let dmg = Math.max(0, a - d); p.hp -= dmg;
+        if (c.effect) c.effect(p); p.hand.splice(i, 1); phase = "MAIN"; currentAttack = null; checkWin(); updateUI();
     }
 }
 
-function takeAction() { 
-    if (turn.id === myRole && !isProcessing) {
-        isProcessing = true;
-        socket.emit('player-action', {type:'skip', playerId:myRole});
-        updateUI();
-    }
-}
-
+function takeAction() { if (turn.id === myRole && !isProcessing) { isProcessing = true; socket.emit('player-action', {type:'skip', playerId:myRole}); updateUI(); } }
 function executeSkip(p) {
-    if (phase === "DEFENSE") {
-        let dmg = currentAttack ? currentAttack.atk : 0;
-        p.hp -= dmg; log(`${p.id.toUpperCase()} は ${dmg}ダメ受けた`, "#ff4757");
-        phase = "MAIN"; currentAttack = null; checkWin();
-    } else changeTurn();
+    if (phase === "DEFENSE") { let dmg = currentAttack ? currentAttack.atk : 0; p.hp -= dmg; log(`${p.id}は${dmg}ダメ受けた`); phase = "MAIN"; currentAttack = null; checkWin(); }
+    else changeTurn();
 }
-
-function changeTurn() { 
-    turn = (turn === p1) ? p2 : p1; 
-    phase = "MAIN"; 
-    drawCard(turn); 
-    log(`--- ${turn.id.toUpperCase()}のターン ---`, "#f1c40f"); 
+function changeTurn() { turn = (turn === p1) ? p2 : p1; phase = "MAIN"; drawCard(turn); log(`--- ${turn.id}のターン ---`); }
+function log(msg) {
+    const l = document.getElementById('log');
+    if(l) { const p = document.createElement('p'); p.innerText = `> ${msg}`; l.appendChild(p);
+    const c = document.getElementById('log-container'); if(c) c.scrollTop = c.scrollHeight; }
 }
-
-function log(msg, color = "#fff") {
-    const logArea = document.querySelector('.log-section #log');
-    if(!logArea) {
-        const p = document.createElement('p'); p.style.color = color; p.innerHTML = `> ${msg}`;
-        document.getElementById('log').appendChild(p);
-        const container = document.getElementById('log-container');
-        if(container) container.scrollTop = container.scrollHeight;
-    }
-}
-
 function checkWin() {
-    if (p1.hp <= 0 || p2.hp <= 0) {
-        const overlay = document.getElementById('overlay');
-        if(overlay) overlay.style.display = "flex";
-        const msg = document.getElementById('winner-msg');
-        if(msg) msg.innerText = (p1.hp <= 0 ? "PLAYER B" : "PLAYER A") + " WIN!";
-    }
+    if (p1.hp <= 0 || p2.hp <= 0) { document.getElementById('overlay').style.display = "flex"; document.getElementById('winner-msg').innerText = (p1.hp <= 0 ? "PLAYER B" : "PLAYER A") + " WIN!"; }
 }
