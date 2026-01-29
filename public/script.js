@@ -13,14 +13,14 @@ const CARDS = {
         { name: "岡村桜介", atk: 20, mp: 8, sex: "男", desc: "物理一撃" },
         { name: "太田", atk: 1, mp: 10, sex: "男", desc: "相手防御が「女」なら攻撃力25", calcAtk: (target) => (target && target.sex === "女") ? 25 : 1 },
         { name: "かなた", atk: 10, mp: 8, sex: "男", desc: "防御が「女」なら攻撃力0", calcAtk: (target) => (target && target.sex === "女") ? 0 : 10 },
-        { name: "ゆうた", atk: 20, mp: 8, sex: "男", desc: "手札を2枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); } return "手札+2"; } }
+        { name: "ゆうた", atk: 20, mp: 8, sex: "男", desc: "手札を2枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); setTimeout(()=>drawCard(u), 100); } return "手札+2"; } }
     ],
     def: [
         { name: "TOIEC400点", def: 4, mp: 4, weight: 12, sex: "無", desc: "標準防御" },
         { name: "TOIEC500点", def: 5, mp: 5, weight: 12, sex: "無", desc: "手札+1", effect: (u) => { if(u.id === myRole) drawCard(u); return "手札+1"; } },
-        { name: "TOIEC600点", def: 6, mp: 6, weight: 8, sex: "無", desc: "手札+2", effect: (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); } return "手札+2"; } },
+        { name: "TOIEC600点", def: 6, mp: 6, weight: 8, sex: "無", desc: "手札+2", effect: (u) => { if(u.id === myRole) { drawCard(u); setTimeout(()=>drawCard(u), 100); } return "手札+2"; } },
         { name: "TOIEC700点", def: 7, mp: 7, weight: 7, sex: "無", desc: "MP10回復 & 手札+1", effect: (u) => { u.mp = Math.min(MAX_MP, u.mp + 10); if(u.id === myRole) drawCard(u); return "MP10回復&手札+1"; } },
-        { name: "TOIEC800点", def: 8, mp: 8, weight: 6, sex: "無", desc: "MP10回復 & 手札+2", effect: (u) => { u.mp = Math.min(MAX_MP, u.mp + 10); if(u.id === myRole) { drawCard(u); drawCard(u); } return "MP10回復&手札+2"; } },
+        { name: "TOIEC800点", def: 8, mp: 8, weight: 6, sex: "無", desc: "MP10回復 & 手札+2", effect: (u) => { u.mp = Math.min(MAX_MP, u.mp + 10); if(u.id === myRole) { drawCard(u); setTimeout(()=>drawCard(u), 100); } return "MP10回復&手札+2"; } },
         { name: "大石先生の教鞭", def: 10, mp: 10, weight: 5, sex: "男", desc: "標準防御" },
         { name: "高橋先生の経験", def: 100, mp: 30, weight: 3, sex: "女", desc: "絶対防御" },
         { name: "市原君の実力", def: 7, mp: 5, weight: 11, sex: "男", desc: "対「太田」防御力1", calcDef: (atk) => (atk && atk.name === "太田") ? 1 : 7 },
@@ -34,12 +34,12 @@ const CARDS = {
         { name: "てつやのリーダーシップ", mp: 8, weight: 15, desc: "HP10回復, MP10回復", effect: (u) => { u.hp = Math.min(MAX_HP, u.hp + 10); u.mp = Math.min(MAX_MP, u.mp + 10); return "HP10&MP10回復"; } },
         { name: "和成のリーダーシップ", mp: 7, weight: 15, desc: "HP10回復", effect: (u) => { u.hp = Math.min(MAX_HP, u.hp + 10); return "HP10回復"; } },
         { name: "そうすけの威厳", mp: 30, weight: 5, desc: "相手に20ダメージ", effect: (u, t) => { t.hp -= 20; return "相手に20ダメージ！"; } },
-        { name: "ゆうすけの尊厳", mp: 20, weight: 10, desc: "手札2枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); } return "手札+2"; } },
-        { name: "りりこさんの知見", mp: 25, weight: 10, desc: "手札3枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); drawCard(u); } return "手札+3"; } },
+        { name: "ゆうすけの尊厳", mp: 20, weight: 10, desc: "手札2枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); setTimeout(()=>drawCard(u), 100); } return "手札+2"; } },
+        { name: "りりこさんの知見", mp: 25, weight: 10, desc: "手札3枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); setTimeout(()=>drawCard(u), 100); setTimeout(()=>drawCard(u), 200); } return "手札+3"; } },
         { name: "しおりさんの英語力", mp: 10, weight: 10, desc: "相手手札をランダムで1枚破壊", effect: async (u, t) => await destroyHand(t, 1) },
         { name: "せいじの大学院進学", mp: 15, weight: 5, desc: "相手手札をランダムで2枚破壊", effect: async (u, t) => await destroyHand(t, 2) },
-        { name: "みっちーの簿記", mp: 10, weight: 10, desc: "手札2枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); } return "手札+2"; } },
-        { name: "かいせの発音", mp: 20, weight: 10, desc: "手札3枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); drawCard(u); } return "手札+3"; } }
+        { name: "みっちーの簿記", mp: 10, weight: 10, desc: "手札2枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); setTimeout(()=>drawCard(u), 100); } return "手札+2"; } },
+        { name: "かいせの発音", mp: 20, weight: 10, desc: "手札3枚得る", effect: (u) => { if(u.id === myRole) { drawCard(u); setTimeout(()=>drawCard(u), 100); setTimeout(()=>drawCard(u), 200); } return "手札+3"; } }
     ]
 };
 
@@ -128,7 +128,9 @@ function updateUI() {
     renderHand('p1-hand', p1); renderHand('p2-hand', p2);
     const sBtn = document.getElementById('skip-btn');
     if (turn.id === myRole && phase !== "DRAW") { 
-        sBtn.style.display = "block"; sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了"; 
+        sBtn.style.display = "block"; 
+        sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了"; 
+        sBtn.disabled = isProcessing; 
     } else { sBtn.style.display = "none"; }
 }
 
@@ -154,8 +156,9 @@ async function executeCard(p, i) {
     } else if (phase === "DEFENSE") {
         let dmg = Math.max(0, (currentAttack.calcAtk?currentAttack.calcAtk(c):currentAttack.atk) - (c.calcDef?c.calcDef(currentAttack):(c.def||0)));
         p.hp -= dmg; log(`${p.id.toUpperCase()}の防御: ${c.name} (${dmg}ダメ)`);
-        if (currentAttack.effect) await currentAttack.effect(target, p);
+        let r = ""; if (currentAttack.effect) r = await currentAttack.effect(target, p);
         if (c.effect) await c.effect(p);
+        if(r) log(` └ 追撃効果: ${r}`);
         p.hand.splice(i, 1); phase = "MAIN"; currentAttack = null; changeTurn();
     }
 }
@@ -163,8 +166,9 @@ async function executeCard(p, i) {
 async function executeSkip(p) {
     if (phase === "DEFENSE") {
         const attacker = (p === p1) ? p2 : p1;
-        p.hp -= currentAttack.atk; log(`${p.id.toUpperCase()}は防御せず受弾`);
-        if (currentAttack.effect) await currentAttack.effect(attacker, p);
+        p.hp -= currentAttack.atk; log(`${p.id.toUpperCase()}は受弾: ${currentAttack.atk}ダメ`);
+        let r = ""; if (currentAttack.effect) r = await currentAttack.effect(attacker, p);
+        if(r) log(` └ 追撃効果: ${r}`);
         phase = "MAIN"; currentAttack = null; changeTurn();
     } else changeTurn();
 }
