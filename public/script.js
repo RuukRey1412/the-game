@@ -64,18 +64,24 @@ socket.on('sync-action', async (data) => {
     const actor = data.playerId === 'p1' ? p1 : p2;
     if (data.type === 'use') await executeCard(actor, data.idx);
     else if (data.type === 'skip') await executeSkip(actor);
-    else if (data.type === 'phase-draw') { if(phase === "DRAW") phase = "MAIN"; }
+    else if (data.type === 'phase-draw') { phase = "MAIN"; }
     isProcessing = false; updateUI();
 });
 
 socket.on('sync-draw', (data) => {
     const p = data.playerId === 'p1' ? p1 : p2;
-    const pool = CARDS[data.card.type];
+    const type = data.card.type || 'atk'; 
+    const pool = CARDS[type];
+    if (!pool) return;
+
     let card;
     const total = pool.reduce((s, c) => s + (c.weight || 1), 0);
     let rw = data.card.seed * total;
-    for (const c of pool) { if (rw < (c.weight || 1)) { card = {...c, type:data.card.type}; break; } rw -= (c.weight || 1); }
-    p.hand.push(card); updateUI();
+    for (const c of pool) { if (rw < (c.weight || 1)) { card = {...c, type: type}; break; } rw -= (c.weight || 1); }
+    
+    if (card) p.hand.push(card);
+    isProcessing = false; // 受信完了でロック解除
+    updateUI();
 });
 
 async function destroyHand(targetPlayer, count) {
@@ -83,17 +89,22 @@ async function destroyHand(targetPlayer, count) {
         if (targetPlayer.hand.length > 0) {
             const idx = Math.floor(Math.random() * targetPlayer.hand.length);
             targetPlayer.hand.splice(idx, 1);
-            updateUI();
         }
     }
+    updateUI();
     return `手札破壊`;
 }
 
-function drawCard(p) { socket.emit('request-draw', { playerId: p.id, roomID: currentRoom }); }
+function drawCard(p) {
+    const types = ['atk', 'def', 'sup'];
+    const randomType = types[Math.floor(Math.random() * types.length)];
+    socket.emit('request-draw', { playerId: p.id, roomID: currentRoom, type: randomType });
+}
 
 function manualDraw() {
     if (turn.id === myRole && phase === "DRAW" && !isProcessing) {
-        isProcessing = true; drawCard(turn);
+        isProcessing = true;
+        drawCard(turn);
         socket.emit('player-action', {type:'phase-draw', playerId:myRole, roomID: currentRoom});
     }
 }
@@ -109,17 +120,23 @@ function updateUI() {
         document.getElementById(`${p.id}-hp-bar`).style.width = `${Math.max(0, (p.hp / MAX_HP) * 100)}%`;
         document.getElementById(`${p.id}-mp-bar`).style.width = `${(p.mp / MAX_MP) * 100}%`;
     });
-    document.getElementById('p1-area').classList.toggle("active", turn === p1);
-    document.getElementById('p2-area').classList.toggle("active", turn === p2);
+
+    const p1Area = document.getElementById('p1-area');
+    const p2Area = document.getElementById('p2-area');
+    if(p1Area) p1Area.classList.toggle("active", turn === p1);
+    if(p2Area) p2Area.classList.toggle("active", turn === p2);
     
     renderHand('p1-hand', p1, canUseMorikawa && turn.id === myRole && phase === "MAIN"); 
     renderHand('p2-hand', p2, canUseMorikawa && turn.id === myRole && phase === "MAIN");
     
     const sBtn = document.getElementById('skip-btn');
-    if (turn.id === myRole && phase !== "DRAW") { 
-        sBtn.style.display = "block"; sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了"; 
-        sBtn.disabled = isProcessing || (canUseMorikawa && phase === "MAIN");
-    } else { sBtn.style.display = "none"; }
+    if (sBtn) {
+        if (turn.id === myRole && phase !== "DRAW") { 
+            sBtn.style.display = "block"; 
+            sBtn.innerText = (phase === "DEFENSE") ? "攻撃を受ける" : "終了"; 
+            sBtn.disabled = isProcessing || (canUseMorikawa && phase === "MAIN");
+        } else { sBtn.style.display = "none"; }
+    }
 
     const d1 = document.getElementById('p1-draw-zone'), d2 = document.getElementById('p2-draw-zone');
     if(d1) d1.classList.toggle('highlight', turn === p1 && phase === "DRAW" && myRole === 'p1');
@@ -139,11 +156,14 @@ function renderHand(id, p, forceMorikawa) {
             if (forceMorikawa && c.name !== "盛川美優の妄想") isSelectable = false;
 
             if (isSelectable) {
-                d.onclick = () => { isProcessing = true; socket.emit('player-action', {type:'use', playerId:myRole, idx:i, roomID: currentRoom}); };
+                d.onclick = () => { 
+                    isProcessing = true; 
+                    socket.emit('player-action', {type:'use', playerId:myRole, idx:i, roomID: currentRoom}); 
+                };
             } else { d.style.opacity = "0.3"; }
-            d.onmouseover = d.onclick = (e) => { 
+            
+            d.onmouseenter = () => {
                 document.getElementById('card-detail').innerHTML = `<strong>${c.name}</strong><br>${c.desc}`;
-                if(e.type === 'click' && !isSelectable) e.stopPropagation();
             };
         }
         el.appendChild(d);
@@ -179,11 +199,12 @@ async function executeCard(p, i) {
 }
 
 async function executeSkip(p) {
+    const target = (p === p1) ? p2 : p1;
     if (phase === "DEFENSE") {
         let dmg = getDamage(currentAttack, null); p.hp -= dmg;
         log(`${p.id.toUpperCase()} 被弾: ${dmg}点`);
         startNextPlayerTurn(p);
-    } else { startNextPlayerTurn((p === p1) ? p2 : p1); }
+    } else { startNextPlayerTurn(target); }
 }
 
 function startNextPlayerTurn(nextPlayer) {
@@ -196,14 +217,17 @@ function startNextPlayerTurn(nextPlayer) {
 function log(msg) {
     const l = document.getElementById('log');
     const p = document.createElement('p'); p.innerText = `> ${msg}`; l.appendChild(p);
-    document.getElementById('log-container').scrollTop = 9999;
+    const container = document.getElementById('log-container');
+    if(container) container.scrollTop = container.scrollHeight;
 }
 
 function checkWin() {
     const p1L = p1.hp <= 0, p2L = p2.hp <= 0;
     if (p1L || p2L) {
-        document.getElementById('overlay').style.display = "flex";
-        document.getElementById('winner-msg').innerText = (p1L ? "PLAYER B" : "PLAYER A") + " WIN!";
+        const overlay = document.getElementById('overlay');
+        const msg = document.getElementById('winner-msg');
+        if(overlay) overlay.style.display = "flex";
+        if(msg) msg.innerText = (p1L ? "PLAYER B" : "PLAYER A") + " WIN!";
         return true;
     }
     return false;
