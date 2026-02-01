@@ -2,72 +2,65 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学長ゼミバトル - Online</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>学長ゼミバトル - Mobile</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="login-overlay">
-        <div class="login-box">
-            <h2>学長ゼミバトル</h2>
-            <input type="text" id="room-input" placeholder="合言葉を入力">
-            <button onclick="joinRoom()">入室する</button>
-            <p id="wait-msg" style="display:none;">対戦相手を待っています...</p>
+    <div id="entrance-screen">
+        <div class="entrance-box">
+            <h1>学長ゼミバトル</h1>
+            <input type="text" id="room-input" placeholder="合言葉を入力" maxlength="10">
+            <button onclick="uiJoinRoom()">対戦開始</button>
+            <p id="entrance-msg"></p>
         </div>
+    </div>
+
+    <div id="waiting-screen" style="display:none;">
+        <div class="loader"></div>
+        <p>相手を待っています...</p>
+        <p id="room-display-name"></p>
     </div>
 
     <div id="overlay">
         <h1 id="winner-msg">WINNER!</h1>
-        <button onclick="location.reload()">もう一度遊ぶ</button>
+        <button onclick="location.reload()">タイトルへ戻る</button>
     </div>
 
-    <div id="main-layout" style="display:none;">
-        <div id="game-container">
-            <div id="role-indicator">あなたは: <span id="my-role-label">接続中...</span></div>
-            
-            <div id="p1-area" class="player-box">
-                <div class="player-header">
-                    <span class="player-name">PLAYER A</span>
-                    <div class="stats-container">
-                        <div class="gauge-label">HP <span id="p1-hp">---</span>/150</div>
-                        <div class="gauge-bar"><div id="p1-hp-bar" class="gauge-fill hp" style="width: 66%;"></div></div>
-                        <div class="gauge-label">MP <span id="p1-mp">---</span>/250</div>
-                        <div class="gauge-bar"><div id="p1-mp-bar" class="gauge-fill mp" style="width: 0%;"></div></div>
-                    </div>
-                </div>
-                <div id="p1-hand" class="hand-container"></div>
-                <div id="p1-draw-zone" class="draw-zone" onclick="manualDraw()">ドロー</div>
-            </div>
+    <div id="destroy-popup" style="display:none;">
+        <div class="popup-inner">
+            <p>カードが破壊されます...</p>
+            <button onclick="confirmDestruction()">了解</button>
+        </div>
+    </div>
 
-            <div id="action-center">
-                <button id="skip-btn" onclick="takeAction()" style="display:none;">終了</button>
+    <div id="mobile-game-layout" style="display:none;">
+        <div id="opponent-side" class="player-area">
+            <div class="status-minimal">
+                <div class="bar-container"><div id="p2-hp-bar" class="bar hp"></div></div>
+                <div class="bar-container"><div id="p2-mp-bar" class="bar mp"></div></div>
             </div>
+            <div id="p2-hand" class="hand-scroll"></div>
+        </div>
 
-            <div id="p2-area" class="player-box">
-                <div class="player-header">
-                    <span class="player-name">PLAYER B</span>
-                    <div class="stats-container">
-                        <div class="gauge-label">HP <span id="p2-hp">---</span>/150</div>
-                        <div class="gauge-bar"><div id="p2-hp-bar" class="gauge-fill hp" style="width: 66%;"></div></div>
-                        <div class="gauge-label">MP <span id="p2-mp">---</span>/250</div>
-                        <div class="gauge-bar"><div id="p2-mp-bar" class="gauge-fill mp" style="width: 0%;"></div></div>
-                    </div>
-                </div>
-                <div id="p2-hand" class="hand-container"></div>
-                <div id="p2-draw-zone" class="draw-zone" onclick="manualDraw()">ドロー</div>
+        <div id="center-display">
+            <div id="card-detail">カードをタップして詳細を確認</div>
+            <div id="log-wrap"><div id="log"></div></div>
+            <div id="action-bar">
+                <button id="skip-btn" onclick="takeAction()" style="display:none;">行動終了</button>
             </div>
         </div>
 
-        <aside id="info-panel">
-            <div class="panel-section">
-                <h2>CARD INFO</h2>
-                <div id="card-detail"><p class="placeholder">カードにホバーして詳細を表示</p></div>
+        <div id="player-side" class="player-area active">
+            <div id="role-tag">---</div>
+            <div id="p1-hand" class="hand-scroll"></div>
+            <div class="status-minimal">
+                <div class="status-text">HP:<span id="p1-hp">200</span> MP:<span id="p1-mp">150</span></div>
+                <div class="bar-container"><div id="p1-hp-bar" class="bar hp"></div></div>
+                <div class="bar-container"><div id="p1-mp-bar" class="bar mp"></div></div>
             </div>
-            <div class="panel-section log-section">
-                <h2>BATTLE LOG</h2>
-                <div id="log-container"><div id="log"></div></div>
-            </div>
-        </aside>
+            <div id="p1-draw-zone" class="draw-btn" onclick="manualDraw()">ドロー</div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
