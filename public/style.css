@@ -8,6 +8,17 @@ body {
     font-family: -apple-system, sans-serif; height: 100dvh; overflow: hidden;
 }
 
+/* 入室画面 */
+#entrance-screen, #waiting-screen {
+    position: fixed; inset: 0; background: var(--bg); z-index: 2000;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+}
+.entrance-box input { 
+    display: block; width: 80%; margin: 20px auto; padding: 12px;
+    background: #1a1a24; border: 1px solid var(--gold); color: white; border-radius: 8px;
+}
+.entrance-box button { padding: 12px 40px; background: var(--gold); border: none; border-radius: 8px; font-weight: bold; }
+
 /* モバイルレイアウト */
 #mobile-game-layout { display: flex; flex-direction: column; height: 100%; }
 
@@ -22,7 +33,6 @@ body {
     padding: 10px; border-top: 1px solid #333; border-bottom: 1px solid #333;
 }
 
-/* 手札スワイプ */
 .hand-scroll {
     display: flex; gap: 10px; overflow-x: auto; padding: 10px 0;
     -webkit-overflow-scrolling: touch; scrollbar-width: none;
@@ -37,7 +47,6 @@ body {
 .card.selected { border: 2px solid var(--gold); box-shadow: 0 0 10px var(--gold); transform: translateY(-5px); }
 .card.back { background: linear-gradient(135deg, #111, #222); }
 
-/* ドローボタン (親指位置) */
 .draw-btn {
     position: absolute; right: 15px; top: -35px; width: 70px; height: 70px;
     background: #000; border: 2px dashed #444; border-radius: 50%;
@@ -46,14 +55,16 @@ body {
 }
 .draw-btn.highlight { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 15px var(--gold); }
 
-/* ゲージ */
-.status-minimal { width: 100%; }
 .bar-container { background: #111; height: 8px; border-radius: 4px; margin: 4px 0; overflow: hidden; }
 .bar { height: 100%; transition: width 0.4s; }
 .bar.hp { background: var(--hp); }
 .bar.mp { background: var(--mp); }
 
-/* ログ・詳細 */
 #card-detail { color: var(--gold); font-size: 0.85rem; height: 40px; text-align: center; border-bottom: 1px solid #222; }
 #log-wrap { flex: 1; overflow-y: auto; font-size: 0.75rem; color: #888; padding: 5px 0; }
 #skip-btn { background: var(--hp); color: white; border: none; padding: 10px 0; width: 100%; border-radius: 5px; font-weight: bold; }
+
+/* 演出 */
+#overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 3000; }
+.tearing { animation: tear 0.6s forwards; }
+@keyframes tear { 100% { transform: scale(0.5) rotate(10deg); opacity: 0; } }
