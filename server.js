@@ -5,21 +5,19 @@ const io = require('socket.io')(http);
 
 app.use(express.static('public'));
 
-// 部屋ごとのプレイヤー情報を管理
-// 構造: { "ルームID": { socketId1: "p1", socketId2: "p2" } }
+// ルームごとのロール管理（再接続や満員判定用）
 let rooms = {}; 
 
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+    console.log('Connected:', socket.id);
 
-    // 合言葉（Room ID）による入室処理
-    socket.on('join-room', (roomID) => {
-        // 部屋がなければ作成
-        if (!rooms[roomID]) {
-            rooms[roomID] = {};
-        }
+    // 合言葉による入室処理
+    socket.on('join-room', (roomName) => {
+        if (!roomName) return;
 
-        const roomPlayers = rooms[roomID];
+        if (!rooms[roomName]) rooms[roomName] = {};
+        
+        const roomPlayers = rooms[roomName];
         const playerCount = Object.keys(roomPlayers).length;
 
         if (playerCount < 2) {
@@ -27,59 +25,59 @@ io.on('connection', (socket) => {
             const role = playerCount === 0 ? 'p1' : 'p2';
             roomPlayers[socket.id] = role;
             
-            // Socket.ioのRoom機能に参加
-            socket.join(roomID);
-            
-            // 本人にロールを通知
+            socket.join(roomName);
             socket.emit('assign-role', role);
-            console.log(`User ${socket.id} joined room [${roomID}] as ${role}`);
+            
+            console.log(`User [${socket.id}] joined room [${roomName}] as ${role}`);
 
-            // 2人揃ったらその部屋の全員にゲーム開始を通知
+            // 2人揃ったら開始
             if (Object.keys(roomPlayers).length === 2) {
-                io.to(roomID).emit('start-game');
+                io.to(roomName).emit('start-game');
             }
         } else {
-            // 満員の場合は通知して切断（またはエラーを返す）
             socket.emit('error-msg', 'この部屋は満員です。');
-            console.log(`Room [${roomID}] is full. Rejecting ${socket.id}`);
         }
     });
 
-    // プレイヤーのアクションをその部屋の全員に同期
+    // アクションの同期
+    // JS側から送られてくる roomName プロパティでフィルタリング
     socket.on('player-action', (data) => {
-        if (data.roomID) {
-            io.to(data.roomID).emit('sync-action', data);
+        if (data.roomName) {
+            // 送信者以外（相手）にのみ送信
+            socket.to(data.roomName).emit('sync-action', data);
         }
     });
 
     // ドローリクエスト
     socket.on('request-draw', (data) => {
-        if (data.roomID) {
+        if (data.roomName) {
             const r = Math.random() * 100;
             // 提供割合: 攻撃40%, 防御30%, サポート30%
             let type = (r < 40) ? "atk" : (r < 70) ? "def" : "sup";
             
-            io.to(data.roomID).emit('sync-draw', { 
+            // 部屋の全員（自分と相手）にカード情報を送る
+            io.to(data.roomName).emit('sync-draw', { 
                 playerId: data.playerId, 
                 card: { type: type, seed: Math.random() } 
             });
         }
     });
 
-    // 切断時の処理
-    socket.on('disconnect', () => {
-        // すべての部屋を回って切断したユーザーを探して削除
-        for (const roomID in rooms) {
-            if (rooms[roomID][socket.id]) {
-                const role = rooms[roomID][socket.id];
-                delete rooms[roomID][socket.id];
-                console.log(`User ${socket.id} (${role}) left room [${roomID}]`);
+    // 切断時のクリーンアップ
+    socket.on('disconnecting', () => {
+        // socket.roomsには自分のID以外に所属ルームが含まれている
+        for (const roomName of socket.rooms) {
+            if (rooms[roomName] && rooms[roomName][socket.id]) {
+                delete rooms[roomName][socket.id];
+                console.log(`User [${socket.id}] left [${roomName}]`);
                 
-                // 部屋が空になったら削除
-                if (Object.keys(rooms[roomID]).length === 0) {
-                    delete rooms[roomID];
+                // 部屋が空なら削除
+                if (Object.keys(rooms[roomName]).length === 0) {
+                    delete rooms[roomName];
+                } else {
+                    // 相手が残っているなら通知
+                    socket.to(roomName).emit('log-msg', '相手が切断しました。');
                 }
-                break;
             }
         }
     });
