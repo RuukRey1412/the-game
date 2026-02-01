@@ -22,28 +22,22 @@
     </div>
 
     <div id="main-layout" style="display:none;">
-        
         <div id="battle-sector">
             <div id="role-indicator"><span id="my-role-label">接続中...</span></div>
             
-            <div id="enemy-view" class="player-zone-mini">
-                </div>
-
-            <div id="action-center">
+            <div id="enemy-view"></div> <div id="action-center">
                 <button id="skip-btn" onclick="takeAction()" style="display:none;">終了</button>
             </div>
 
-            <div id="my-view" class="player-zone-main">
-                </div>
-        </div>
+            <div id="my-view"></div> </div>
 
         <aside id="info-panel">
             <div class="panel-section info-box">
                 <h2>CARD INFO</h2>
                 <div id="card-detail">
-                    <p class="placeholder">タップして詳細表示</p>
+                    <p class="placeholder">カードをタップして詳細を表示</p>
                 </div>
-                <button id="use-confirm-btn" style="display:none;">このカードを使う</button>
+                <button id="use-confirm-btn" style="display:none;">使用する</button>
             </div>
             
             <div class="panel-section log-section">
@@ -51,12 +45,10 @@
                 <div id="log-container"><div id="log"></div></div>
             </div>
 
-            <div id="draw-action-area">
-                <div id="p1-draw-zone" class="draw-zone" onclick="manualDraw()">DRAW</div>
-                <div id="p2-draw-zone" class="draw-zone" onclick="manualDraw()">DRAW</div>
+            <div id="draw-btn-container">
+                <div id="draw-zone" class="draw-zone" onclick="manualDraw()">DRAW</div>
             </div>
         </aside>
-
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
